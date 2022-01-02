@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from dash import dcc
 from plotly.subplots import make_subplots
 import numpy as np
+import pandas as pd
 
 from models import constants
 
@@ -157,6 +158,7 @@ class Plot:
 
     @staticmethod
     def getCandlesPlot(df):
+
         df = df.set_index('Name', inplace=False)
         df.drop(
             df.index.difference(df.attrs['allowed_items']),
@@ -164,17 +166,29 @@ class Plot:
         df.reset_index(inplace=True)
         df = df.sort_values(by=[df.columns[-1]])
 
+        days_diffs = []
+        for i in range(len(df.attrs['date_columns']) - 1):
+            days_diffs.append(
+                (df.attrs['date_columns'][i+1]-df.attrs['date_columns'][i]).days)
+        days_diffs.append(1)
+
         figure = go.Figure()
         for index, row in df.iterrows():
-            rr = row[constants.SUMMARY_COLUMNS_SIZE:]
-            rr = rr[rr != 0]
-            Q1 = rr.quantile(0.10)
-            Q2 = rr.quantile(0.90)
-            rr = rr[(rr >= Q1) & (rr <= Q2)]
+            plot_row = row[constants.SUMMARY_COLUMNS_SIZE:]
+            tmp_plot_row = []
+            assert len(days_diffs) == plot_row.size
+            for index, r in enumerate(plot_row):
+                tmp_plot_row.append(r * days_diffs[index])
+
+            plot_row = pd.Series(tmp_plot_row)
+            plot_row = plot_row[plot_row != 0]
+            Q1 = plot_row.quantile(0.15)
+            Q2 = plot_row.quantile(0.85)
+            plot_row = plot_row[(plot_row >= Q1) & (plot_row <= Q2)]
             figure.add_trace(
                 go.Box(
                     name=row.iloc[0],
-                    y=rr,
+                    y=plot_row,
                     boxpoints=False,
                     notched=False,
                     showlegend=False))
