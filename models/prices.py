@@ -81,6 +81,8 @@ class PriceHelper:
         return self.__prices_dict[figi].get(d, 0.0)
 
     def get_price(self, figi, d):
+        if figi == 'FAKE_RUB_FIGI':
+            return 1.0
         d = constants.prepare_date(d)
         assert d <= constants.NOW.date()
         value = self.__ensure_price_loaded(figi, d)
@@ -88,6 +90,8 @@ class PriceHelper:
         return value
 
     def get_first_trade_date(self, figi):
+        if figi == 'FAKE_RUB_FIGI':
+            return constants.prepare_date(datetime.date.min)
         if figi in self.__first_trade_dates_dict:
             return self.__first_trade_dates_dict[figi]
         today = constants.NOW.date()

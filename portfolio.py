@@ -8,6 +8,7 @@ import pandas as pd
 from dash import Dash, dcc, html
 from openapi_client import openapi
 from openapi_genclient.exceptions import ApiValueError
+from openapi_genclient import models
 from sqlitedict import SqliteDict
 
 from models import constants as cnst, currency, operations, prices, stats
@@ -55,8 +56,29 @@ def get_client():
             replace_token = True
 
 
+def get_rub_total(client, account_id):
+    for c in client.portfolio.portfolio_currencies_get(
+            broker_account_id=account_id).payload.currencies:
+        if c.currency == 'RUB':
+            return c.balance
+    return 0.0
+
+
+def get_rub_position(rubs):
+    rub_position = models.portfolio_position.PortfolioPosition(
+        ticker='RUB',
+        figi='FAKE_RUB_FIGI', instrument_type='Currency', balance=rubs, lots=1,
+        name='Российский рубль', average_position_price=models.MoneyAmount(
+            currency='RUB', value=1.0), expected_yield=models.MoneyAmount(
+            currency='RUB', value=0.0))
+    return rub_position
+
+
 def get_portoflio_parsed(client, account_id):
     portfolio = client.portfolio.portfolio_get(broker_account_id=account_id)
+    rubs = get_rub_total(client, account_id)
+    rub_position = get_rub_position(rubs)
+    portfolio.payload.positions.append(rub_position)
     return portfolio.payload.positions
 
 
@@ -71,9 +93,34 @@ def update_portfolios(client, all_positions):
                 "name": account.broker_account_type, "positions": {}}
 
         account_positions = all_positions[account.broker_account_id]
-        account_positions["positions"][
-            cnst.NOW.date()] = get_portoflio_parsed(
+
+        # FreedomFinance bug workaround
+        if True:
+            k = max(account_positions["positions"].keys())
+            freedomFinance = None
+            for p in account_positions["positions"][k]:
+                if p.figi == 'BBG00RMFNJQ7':
+                    p.average_position_price.value = 1019.1266
+                    p.expected_yield.value = (
+                        1005 - p.average_position_price.value) * p.balance
+                    freedomFinance = p
+                    break
+            assert freedomFinance is not None, k
+
+        portoflio_parsed = get_portoflio_parsed(
             client, account.broker_account_id)
+        for p in portoflio_parsed:
+            if p.figi == 'BBG00RMFNJQ7':
+                assert False
+        if True:
+            portoflio_parsed.append(freedomFinance)
+
+        account_positions["positions"][cnst.NOW.date()] = portoflio_parsed
+        if False:
+            l = list(account_positions["positions"].keys())
+            for ll in l:
+                if ll > datetime.date(2022, 1, 12) and ll <= cnst.NOW.date():
+                    del account_positions["positions"][ll]
         all_positions[account.broker_account_id] = account_positions
 
 
@@ -97,6 +144,10 @@ def pretty_print_date_diff(day, diff):
 
 def get_full_name(item):
     # https://www.tinkoff.ru/invest/stocks/{item.ticker}
+    if not item.average_position_price:
+        return (f'{item.name} ${item.ticker}',
+                item.instrument_type,
+                'RUB')
     return (f'{item.name} ${item.ticker}',
             item.instrument_type,
             item.average_position_price.currency)
@@ -189,6 +240,10 @@ def get_data_frame_by_portfolio(account, portfolio):
 
         d_time_delta = d - datetime.timedelta(days=7)
         for item in all_items.values():
+            # ZZZ
+            if True:
+                if item.figi == 'BBG00RMFNJQ7':
+                    continue
             full_name = get_full_name(item)[0]
             p_curr = cnst.mean(
                 cnst.get_item_price(item, d - datetime.timedelta(days=delta), PRICES_HELPER)
@@ -366,13 +421,13 @@ def main():
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_totals, 'total'),
-                                     Plot.getItemsPlot(df_totals),
-                                     Table.get_table(df_totals)],
+                                     Plot.getTreeMapPlot(df_totals),
+                                     Table.get_table(df_totals),],
                                  label="Totals"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_yields, 'yield'),
-                                     Plot.getItemsPlot(df_yields),
+                                     Plot.getTreeMapPlotWithNeg(df_yields),
                                      Table.get_table(df_yields)],
                                  label="Yields"),
                              dcc.Tab(
@@ -383,8 +438,8 @@ def main():
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(df_prices),
                                            html.H1("MA7-MA30"),
-                                           Plot.getItemsPlot(df_prices,
-                                                             inverse=True),
+                                           Plot.getItemsPlot(
+                                               df_prices, inverse=True),
                                            Table.get_table(
                                                df_prices,
                                                highlight_neg_pos=True,
@@ -392,12 +447,13 @@ def main():
                                                use_allowed_items=False), ],
                                  label="Prices"),
                              dcc.Tab(
-                                 children=[Plot.getAllItemsPlot(df_xirrs_clipped),
-                                           Plot.getCandlesPlot(df_xirrs_clipped),
-                                           Plot.getItemsPlot(
-                                               df_xirrs, [-100, 100],
-                                               compare_to_total=True),
-                                           Table.get_table(df_xirrs)],
+                                 children=[Plot.getAllItemsPlot(
+                                     df_xirrs_clipped),
+                                     Plot.getCandlesPlot(df_xirrs_clipped),
+                                     Plot.getItemsPlot(
+                                     df_xirrs, [-100, 100],
+                                     compare_to_total=True),
+                                     Table.get_table(df_xirrs)],
                                  label="XIRR")])))
                 tabs.append(
                     dcc.Tab(
@@ -416,11 +472,11 @@ def main():
     FIRST_DATE_TRADES.close()
 
     if start_server:
+        logging.getLogger('werkzeug').setLevel(logging.ERROR)
         app = Dash("Yields")
-        app.logger.setLevel = lambda x: None
         app.layout = html.Div(dcc.Tabs(tabs))
         logging.info("Server is starting")
-        app.run_server(debug=True)
+        app.run_server(debug=False)
         logging.info("Server is stopped")
     logging.info("main is done")
 
