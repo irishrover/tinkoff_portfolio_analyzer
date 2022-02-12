@@ -1,9 +1,10 @@
-import plotly.express as px
-import plotly.graph_objects as go
 from dash import dcc
 from plotly.subplots import make_subplots
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import textwrap
 
 from models import constants
 
@@ -129,7 +130,7 @@ class Plot:
                 "pos"),
             color_discrete_map={'neg': 'green', 'pos': 'red', }
             if inverse else{'neg': 'red', 'pos': 'green', })
-        figure.update_layout(showlegend=False, height=500)
+        figure.update_layout(showlegend=False, height=700)
         if clamp_range:
             figure.update_yaxes(range=clamp_range)
         figure.update_traces(marker_coloraxis=None,
@@ -157,8 +158,45 @@ class Plot:
         return dcc.Graph(figure=figure)
 
     @staticmethod
-    def getCandlesPlot(df):
+    def getTreeMapPlot(df):
+        df = df.drop(0)
+        df = df[df[df.columns[-1]] != 0]
+        wrapper = textwrap.TextWrapper(width=10)
+        df[df.columns[0]] = df[df.columns[0]].apply(
+            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
+        figure = px.treemap(
+            {"labels": df[df.columns[0]],
+             "values": df[df.columns[-1]]},
+            path=[df[df.columns[1]],
+                  'labels'],
+            values='values', color='values', color_continuous_scale='Plotly3')
+        figure.update_layout(
+            showlegend=False, height=800, extendtreemapcolors=True,
+            uniformtext=dict(minsize=11, mode='hide'))
+        return dcc.Graph(figure=figure)
 
+    @staticmethod
+    def getTreeMapPlotWithNeg(df):
+        df = df.drop(0)
+        df = df[df[df.columns[-1]] != 0]
+        df["values"] = df[df.columns[-1]].abs()
+        wrapper = textwrap.TextWrapper(width=10)
+        df[df.columns[0]] = df[df.columns[0]].apply(
+            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
+        figure = px.treemap(
+            {"labels": df[df.columns[0]],
+             "values": df[df.columns[-1]],
+             "colors": df[df.columns[-2]]},
+            path=[df[df.columns[1]],
+                  'labels'],
+            values='values', color="colors", color_continuous_scale=px.colors.diverging.PiYG)
+        figure.update_layout(
+            showlegend=False, height=800, extendtreemapcolors=True,
+            uniformtext=dict(minsize=11, mode='hide'))
+        return dcc.Graph(figure=figure)
+
+    @staticmethod
+    def getCandlesPlot(df):
         df = df.set_index('Name', inplace=False)
         df.drop(
             df.index.difference(df.attrs['allowed_items']),
@@ -178,13 +216,13 @@ class Plot:
             tmp_plot_row = []
             assert len(days_diffs) == plot_row.size
             for index, r in enumerate(plot_row):
-                tmp_plot_row.append(r * days_diffs[index])
-
+                tmp_plot_row.extend([r] * days_diffs[index])
             plot_row = pd.Series(tmp_plot_row)
             plot_row = plot_row[plot_row != 0]
             Q1 = plot_row.quantile(0.15)
             Q2 = plot_row.quantile(0.85)
             plot_row = plot_row[(plot_row >= Q1) & (plot_row <= Q2)]
+
             figure.add_trace(
                 go.Box(
                     name=row.iloc[0],
