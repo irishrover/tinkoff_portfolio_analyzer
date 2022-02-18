@@ -155,8 +155,11 @@ class OperationsHelper:
                 dates_amounts = [
                     (o[1].date, o[1].payment) for o in operations
                     if o[1].date.date() <= constants.prepare_date(d)]
-                dates_amounts.append((d, dates_totals[d]))
-                res = xirr(dates_amounts)
-                result[d] = res * 100.0 if res else 0.0
+                if dates_totals[d] == 0:
+                    result[d] = 0
+                else:
+                    dates_amounts.append((d, dates_totals[d]))
+                    res = xirr(dates_amounts)
+                    result[d] = res * 100.0 if res else 0.0
 
         return result
