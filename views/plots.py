@@ -167,7 +167,7 @@ class Plot:
         figure = px.treemap(
             {"labels": df[df.columns[0]],
              "values": df[df.columns[-1]]},
-            path=[df[df.columns[1]],
+            path=[df[df.columns[1]], df[df.columns[2]],
                   'labels'],
             values='values', color='values', color_continuous_scale='Plotly3')
         figure.update_layout(
@@ -188,8 +188,37 @@ class Plot:
              "values": df[df.columns[-1]],
              "colors": df[df.columns[-2]]},
             path=[df[df.columns[1]],
+                  df[df.columns[2]],
                   'labels'],
-            values='values', color="colors", color_continuous_scale=px.colors.diverging.PiYG)
+            values='values', color="colors", color_continuous_midpoint=0.0,
+            color_continuous_scale=px.colors.diverging.PiYG)
+        figure.update_layout(
+            showlegend=False, height=800, extendtreemapcolors=True,
+            uniformtext=dict(minsize=11, mode='hide'))
+        return dcc.Graph(figure=figure)
+
+    @staticmethod
+    def getTreeMapPlotWithNegForStats(df):
+        data_column = 5
+        mask = df[df.columns[0]].str.contains('\[', na=False)
+        df = df[~mask]
+        df = df[df[df.columns[data_column]] != 0]
+        df= df[df[df.columns[data_column]] != np.inf]
+        df = df[df[df.columns[1]] != 'RUB']
+        df = df[df[df.columns[1]] != 'USD000UTSTOM']
+        print(df)
+        df["values_sign"] = df[df.columns[data_column]] >= 0.0
+        df["values"] = df[df.columns[data_column]].abs()
+        wrapper = textwrap.TextWrapper(width=10)
+        df[df.columns[0]] = df[df.columns[0]].apply(
+            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
+        figure = px.treemap(
+            {"labels": df[df.columns[0]],
+             "values": df[df.columns[-1]],
+             "colors": df[df.columns[data_column]]},
+            path=[df['values_sign'], 'labels'],
+            values='values', color="colors", color_continuous_midpoint=0.0,
+            color_continuous_scale=px.colors.diverging.PiYG)
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
             uniformtext=dict(minsize=11, mode='hide'))
