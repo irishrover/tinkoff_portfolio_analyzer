@@ -126,3 +126,6 @@ dmypy.json
 
 
 *.sqlite
+.token
+gen/
+investAPI/
