@@ -1,3 +1,6 @@
+import sys
+sys.path.append('gen')
+
 import datetime
 import math
 from bisect import bisect_left
@@ -5,6 +8,9 @@ from collections import OrderedDict, defaultdict
 
 from models import constants as cnst
 from models.operations import Operation
+from models.base_classes import Money, Currency
+from models import currency, instruments, operations, positions
+
 
 DAY_RANGES = OrderedDict(reversed({
     1: 2,
@@ -61,9 +67,10 @@ class DayRangeHelper:
 
 class PortfolioComparer:
 
-    def __init__(self, currencyHelper, operationsHelper):
+    def __init__(self, currencyHelper, operationsHelper, instrumentsHelper):
         self.__currency_helper = currencyHelper
         self.__operations_helper = operationsHelper
+        self.__instruments_helper = instrumentsHelper
         self.__prepared_operations = {}
 
     @staticmethod
@@ -140,11 +147,17 @@ class PortfolioComparer:
             account, dates)
 
     def compare(self, account, d1, p1, d2, p2):
-        names1 = set(item.name for item in p1)
-        names2 = set(item.name for item in p2)
+        names1 = set(self.__instruments_helper.get_by_figi(
+            item.figi).name for item in p1)
+        names2 = set(self.__instruments_helper.get_by_figi(
+            item.figi).name for item in p2)
 
-        items1 = {item.name: item for item in p1}
-        items2 = {item.name: item for item in p2}
+        items1 = {
+            self.__instruments_helper.get_by_figi(item.figi).name: item
+            for item in p1}
+        items2 = {
+            self.__instruments_helper.get_by_figi(item.figi).name: item
+            for item in p2}
 
         result = []
 
@@ -166,19 +179,19 @@ class PortfolioComparer:
             ticker = None
             if in_items1:
                 item1 = items1[name]
-                ticker = item1.ticker
+                ticker = self.__instruments_helper.get_by_figi(item1.figi).ticker
                 v1 = cnst.get_item_value(item1, d1, self.__currency_helper)
                 y1 = cnst.get_item_yield(item1, d1, self.__currency_helper)
-                b1 = item1.balance
+                b1 = item1.quantity
                 xirr1 = self.__operations_helper.get_item_xirrs(
                     account, item1.figi,
                     {d1: cnst.get_item_orig_value(item1)})
             if in_items2:
                 item2 = items2[name]
-                ticker = item2.ticker
+                ticker = self.__instruments_helper.get_by_figi(item2.figi).ticker
                 v2 = cnst.get_item_value(item2, d2, self.__currency_helper)
                 y2 = cnst.get_item_yield(item2, d2, self.__currency_helper)
-                b2 = item2.balance
+                b2 = item2.quantity
                 xirr2 = self.__operations_helper.get_item_xirrs(
                     account, item2.figi,
                     {d2: cnst.get_item_orig_value(item2)})

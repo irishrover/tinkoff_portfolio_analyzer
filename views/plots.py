@@ -199,14 +199,13 @@ class Plot:
 
     @staticmethod
     def getTreeMapPlotWithNegForStats(df):
-        data_column = 5
+        data_column = 4
         mask = df[df.columns[0]].str.contains('\[', na=False)
         df = df[~mask]
         df = df[df[df.columns[data_column]] != 0]
         df= df[df[df.columns[data_column]] != np.inf]
         df = df[df[df.columns[1]] != 'RUB']
         df = df[df[df.columns[1]] != 'USD000UTSTOM']
-        print(df)
         df["values_sign"] = df[df.columns[data_column]] >= 0.0
         df["values"] = df[df.columns[data_column]].abs()
         wrapper = textwrap.TextWrapper(width=10)

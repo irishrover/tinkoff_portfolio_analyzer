@@ -1,3 +1,6 @@
+import sys
+sys.path.append('gen')
+
 import datetime
 from collections import defaultdict
 from enum import Enum, auto
@@ -5,6 +8,7 @@ from enum import Enum, auto
 from pyxirr import xirr  # pylint: disable=no-name-in-module
 
 from models import constants
+from models.base_classes import Currency
 
 
 class Operation(Enum):
@@ -79,7 +83,7 @@ class OperationsHelper:
             while p_i < len(operations) and operations[p_i][0] <= target_date:
                 o = operations[p_i][1]
                 partial_sum[Operation[o.operation_type]] += o.payment * \
-                    self.__currency_helper.get_rate_for_date(o.date, o.currency)
+                    self.__currency_helper.get_rate_for_date(o.date, Currency(o.currency))
                 p_i += 1
             for o in Operation:
                 result[o][dates[d_i]] += partial_sum[o]
@@ -105,7 +109,7 @@ class OperationsHelper:
                                           datetime.time.max).astimezone():
                 o = operations[p_i][1]
                 partial_sum += o.payment * \
-                    self.__currency_helper.get_rate_for_date(o.date, o.currency)
+                    self.__currency_helper.get_rate_for_date(o.date, Currency(o.currency))
                 p_i += 1
             result[dates[d_i]] = partial_sum
             d_i += 1
@@ -128,7 +132,7 @@ class OperationsHelper:
             for d in dates_totals:
                 dates_amounts = [
                     (o[1].date, o[1].payment * self.__currency_helper.get_rate_for_date(
-                        o[1].date, o[1].currency)) for o in operations
+                        o[1].date, Currency(o[1].currency))) for o in operations
                     if o[1].date.date() <= constants.prepare_date(d)]
                 dates_amounts.append((d, -dates_totals[d]))
                 res = xirr(dates_amounts)

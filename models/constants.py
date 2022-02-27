@@ -11,6 +11,7 @@ TITLE_FOR_SUMMARY = '[Total]'
 SUMMARY_COLUMNS = [TITLE_FOR_SUMMARY, '', '']
 SUMMARY_COLUMNS_SIZE = len(SUMMARY_COLUMNS)
 MOVING_AVERAGE_DAYS = 7 * 4
+FAKE_RUB_FIGI = 'FAKE_RUB_FIGI'
 
 
 def prepare_date(d):
@@ -68,26 +69,26 @@ def get_item_price(item, date, prices_helper):
 
 def get_item_yield(item, date, currency_helper):
     return currency_helper.get_rate_for_date(
-        date, item.average_position_price.currency) * item.expected_yield.value
+        date, item.average_price.currency) * item.expected_yield.amount
 
 
 def get_item_yield_percent(item):
-    if item.average_position_price.value != 0.0:
-        return 100.0 * item.expected_yield.value / (
-            item.balance * item.average_position_price.value)
+    if item.average_price.amount != 0.0:
+        return 100.0 * item.expected_yield.amount / (
+            item.quantity * item.average_price.amount)
     return 0.0
 
 
 def get_item_value(item, date, currency_helper):
     rate = currency_helper.get_rate_for_date(
-        date, item.average_position_price.currency)
-    return rate * (item.expected_yield.value +
-                   item.balance * item.average_position_price.value)
+        date, item.average_price.currency)
+    return rate * (item.expected_yield.amount +
+                   item.quantity * item.average_price.amount)
 
 
 def get_item_orig_value(item):
-    return item.expected_yield.value + \
-        item.balance * item.average_position_price.value
+    return item.expected_yield.amount + \
+        item.quantity * item.average_price.amount
 
 
 def get_xirr_value(account, item, d, operations_helper):

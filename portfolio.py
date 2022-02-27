@@ -3,19 +3,26 @@ import datetime
 import locale
 import logging
 from collections import defaultdict
+from pathlib import Path
 
+import grpc
 import pandas as pd
 from dash import Dash, dcc, html
 from openapi_client import openapi
-from openapi_genclient.exceptions import ApiValueError
 from openapi_genclient import models
+from openapi_genclient.exceptions import ApiValueError
 from sqlitedict import SqliteDict
 
-from models import constants as cnst, currency, operations, prices, stats
+from models import constants as cnst
+from models import currency, instruments, operations, positions
+from models import positions as pstns
+from models import prices, stats
+from models.base_classes import Currency
 from views.plots import Plot
 from views.tables import Table
 
 DB_NAME = 'my_db.sqlite'
+TOKEN = Path('.token').read_text()
 
 locale.setlocale(locale.LC_ALL, ('RU', 'UTF8'))
 pd.options.display.float_format = '{:,.2f}'.format
@@ -32,6 +39,9 @@ FIRST_DATE_TRADES = SqliteDict(
 PRICES = SqliteDict(DB_NAME, tablename='prices', autocommit=True)
 PRICES_HELPER = None
 CURRENCY_HELPER = None
+
+INSTRUMENTS = SqliteDict(DB_NAME, tablename='instruments', autocommit=True)
+INSTRUMENTS_HELPER = None
 
 
 def get_client():
@@ -82,20 +92,22 @@ def get_portoflio_parsed(client, account_id):
     return portfolio.payload.positions
 
 
-def update_portfolios(client, all_positions):
-    accounts = client.user.user_accounts_get()
-    assert accounts.status == "Ok"
-    for account in accounts.payload.accounts:
+def update_portfolios(client, all_accounts):
+    #positions2 = pstns.V1ToV2Portofolio(accounts.items())
+    accounts_list = client.user.user_accounts_get()
+    assert accounts_list.status == "Ok"
+    for account in accounts_list.payload.accounts:
         logging.info(
-            "update_portfolios '%s' [%s]", account.broker_account_type, account.broker_account_id)
-        if account.broker_account_id not in all_positions:
-            all_positions[account.broker_account_id] = {
-                "name": account.broker_account_type, "positions": {}}
+            "update_portfolios '%s' [%s: %s]", account.broker_account_type,
+            account.broker_account_id, account.broker_account_type)
+        if account.broker_account_id not in all_accounts:
+            all_accounts[account.broker_account_id] = pstns.Account(
+                id=account.broker_account_id, name=account.name)
 
-        account_positions = all_positions[account.broker_account_id]
+        account_positions = all_accounts[account.broker_account_id]
 
         # FreedomFinance bug workaround
-        if True:
+        if False:
             k = max(account_positions["positions"].keys())
             freedomFinance = None
             for p in account_positions["positions"][k]:
@@ -107,21 +119,24 @@ def update_portfolios(client, all_positions):
                     break
             assert freedomFinance is not None, k
 
-        portoflio_parsed = get_portoflio_parsed(
-            client, account.broker_account_id)
-        for p in portoflio_parsed:
-            if p.figi == 'BBG00RMFNJQ7':
-                assert False
-        if True:
-            portoflio_parsed.append(freedomFinance)
+        fetch_date = cnst.NOW.date()
 
-        account_positions["positions"][cnst.NOW.date()] = portoflio_parsed
+        portoflio_parsed = pstns.V1ToV2SinglePortfolio(
+            get_portoflio_parsed(client, account.broker_account_id))
+
+        #for p in portoflio_parsed:
+        #    if p.figi == 'BBG00RMFNJQ7':
+        #        assert False
+        #if False:
+        #    portoflio_parsed.append(freedomFinance)
+
+        account_positions.positions[fetch_date] = portoflio_parsed
         if False:
             l = list(account_positions["positions"].keys())
             for ll in l:
-                if ll > datetime.date(2022, 1, 12) and ll <= cnst.NOW.date():
+                if ll > datetime.date(2022, 2, 25) and ll <= fetch_date:
                     del account_positions["positions"][ll]
-        all_positions[account.broker_account_id] = account_positions
+        all_accounts[account.broker_account_id] = account_positions
 
 
 def pretty_print_date_diff(day, diff):
@@ -142,22 +157,23 @@ def pretty_print_date_diff(day, diff):
     return ' '.join(result)
 
 
-def get_full_name(item):
+def get_full_name(item: positions.Position):
     # https://www.tinkoff.ru/invest/stocks/{item.ticker}
-    if not item.average_position_price:
-        return (f'{item.name} ${item.ticker}',
+    instrument_data = INSTRUMENTS_HELPER.get_by_figi(item.figi)
+    if not item.average_price:
+        return (f'{instrument_data.name} ${instrument_data.ticker}',
                 item.instrument_type,
                 'RUB')
-    return (f'{item.name} ${item.ticker}',
-            item.instrument_type,
-            item.average_position_price.currency)
+    return (f'{instrument_data.name} ${instrument_data.ticker}',
+            item.instrument_type.name,
+            item.average_price.currency.name)
 
 
 def get_usd_df(key_dates):
-    first_usd_value = CURRENCY_HELPER.get_rate_for_date(key_dates[0], 'USD')
+    first_usd_value = CURRENCY_HELPER.get_rate_for_date(key_dates[0], Currency.USD)
     df_usd = pd.DataFrame(
         (d, 100.0 *
-         (CURRENCY_HELPER.get_rate_for_date(d, 'USD') / first_usd_value - 1.0))
+         (CURRENCY_HELPER.get_rate_for_date(d, Currency.USD) / first_usd_value - 1.0))
         for d in key_dates)
     df_usd.convert_dtypes()
     return df_usd
@@ -171,7 +187,8 @@ def get_stats_df(account, portfolio, key_dates):
     ref_date = key_dates[-1]
     dates_range = stats.DayRangeHelper.get_days(key_dates)
 
-    comparer = stats.PortfolioComparer(CURRENCY_HELPER, OPERATIONS_HELPER)
+    comparer = stats.PortfolioComparer(
+        CURRENCY_HELPER, OPERATIONS_HELPER, INSTRUMENTS_HELPER)
     comparer.prepare_operations(account, dates_range + [ref_date])
     for arange in dates_range:
         items = comparer.compare(account, arange,
@@ -204,10 +221,9 @@ def tune_df(df, key_dates, allowed_items, disallowed_dates):
     df.attrs['date_columns'] = key_dates
 
 
-def get_data_frame_by_portfolio(account, portfolio):
-    logging.info('get_data_frame_by_portfolio [%s]', account)
+def get_data_frame_by_portfolio(account_id, portfolio):
+    logging.info('get_data_frame_by_portfolio [%s]', account_id)
 
-    portfolio = portfolio['positions']
     key_dates = sorted(portfolio.keys())
     if not any(key_dates):
         return (pd.DataFrame(),) * 7
@@ -226,7 +242,7 @@ def get_data_frame_by_portfolio(account, portfolio):
         date_xirrs[d] = defaultdict(lambda: None)
         date_prices[d] = defaultdict(float)
 
-    all_items = {item.ticker: item for d in key_dates for item in portfolio[d]}
+    all_items = {item.figi: item for d in key_dates for item in portfolio[d]}
     for d in key_dates:
         for item in portfolio[d]:
             full_name = get_full_name(item)[0]
@@ -240,8 +256,8 @@ def get_data_frame_by_portfolio(account, portfolio):
 
         d_time_delta = d - datetime.timedelta(days=7)
         for item in all_items.values():
-            # ZZZ
-            if True:
+            # ZZZ: Freedom Finance
+            if False:
                 if item.figi == 'BBG00RMFNJQ7':
                     continue
             full_name = get_full_name(item)[0]
@@ -259,7 +275,7 @@ def get_data_frame_by_portfolio(account, portfolio):
 
     # Fill XIRRs separately.
     for k, v in date_xirrs_tmp.items():
-        xirrs = OPERATIONS_HELPER.get_item_xirrs(account, k[0], v)
+        xirrs = OPERATIONS_HELPER.get_item_xirrs(account_id, k[0], v)
         for d in key_dates:
             date_xirrs[d][k[1]] = xirrs[d]
 
@@ -309,12 +325,12 @@ def get_data_frame_by_portfolio(account, portfolio):
     df_xirrs = pd.DataFrame(items_xirrs, columns=columns)
     df_prices = pd.DataFrame(items_prices, columns=columns)
 
-    df_stats = get_stats_df(account, portfolio, key_dates)
+    df_stats = get_stats_df(account_id, portfolio, key_dates)
 
     payins_operations = OPERATIONS_HELPER.get_operations_by_dates(
-        account, key_dates, operations.Operation.PayIn)
+        account_id, key_dates, operations.Operation.PayIn)
     payouts_operations = OPERATIONS_HELPER.get_operations_by_dates(
-        account, key_dates, operations.Operation.PayOut)
+        account_id, key_dates, operations.Operation.PayOut)
     payins = {k.strftime(cnst.DATE_FORMAT): v for k,
               v in payins_operations.items()}
     payouts = {k.strftime(cnst.DATE_FORMAT): v for k,
@@ -330,7 +346,7 @@ def get_data_frame_by_portfolio(account, portfolio):
         x: df_totals.iloc[:, i + cnst.SUMMARY_COLUMNS_SIZE].sum() for i,
         x in enumerate(key_dates)}
     df_xirrs.loc[0] = cnst.SUMMARY_COLUMNS + list(
-        OPERATIONS_HELPER.get_total_xirr(account, dates_totals).values())
+        OPERATIONS_HELPER.get_total_xirr(account_id, dates_totals).values())
 
     df_totals.loc[0] = cnst.SUMMARY_COLUMNS + list(
         df_totals[x].sum() - (payins[x] + payouts[x])
@@ -355,6 +371,7 @@ def main():
     global CURRENCY_HELPER
     global OPERATIONS_HELPER
     global PRICES_HELPER
+    global INSTRUMENTS_HELPER
 
     start_server = True
 
@@ -380,24 +397,32 @@ def main():
     logging.info("main is starting")
 
     client = get_client()
-    PRICES_HELPER = prices.PriceHelper(client, PRICES, FIRST_DATE_TRADES)
+
+    channel = grpc.secure_channel(
+        'invest-public-api.tinkoff.ru:443', grpc.ssl_channel_credentials())
+    metadata = (('authorization', 'Bearer ' + TOKEN),)
+
+    INSTRUMENTS_HELPER = instruments.InstrumentsHelper(
+        channel, metadata, INSTRUMENTS)
+    PRICES_HELPER = prices.PriceHelper(
+        INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES, channel, metadata)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
     OPERATIONS_HELPER = operations.OperationsHelper(
         client, CURRENCY_HELPER, OPERATIONS)
 
     with SqliteDict(DB_NAME,
-                    tablename='portfolios',
-                    autocommit=True) as all_positions:
-        update_portfolios(client, all_positions)
-        all_positions.commit()
+                    tablename='accounts',
+                    autocommit=True) as accounts:
+        update_portfolios(client, accounts)
+        accounts.commit()
 
         tabs = []
-        for account, positions in all_positions.items():
-            OPERATIONS_HELPER.update(account)
+        for account in accounts.values():
+            OPERATIONS_HELPER.update(account.id)
             tables = []
             logging.info("get_data_frame_by_portfolio is starting")
             df_yields, df_totals, df_percents, df_xirrs, df_prices, df_stats, df_usd \
-                = get_data_frame_by_portfolio(account, positions)
+                = get_data_frame_by_portfolio(account.id, account.positions)
             logging.info("get_data_frame_by_portfolio done")
             tables.append(Plot.getTotalWithMAPlot(
                 df_yields, df_totals, df_percents, df_usd))
@@ -415,14 +440,15 @@ def main():
                                 children=[html.Div(
                                     [Table.get_stats_table(
                                         df[1],
-                                        df[0])])
+                                        df[0]),
+                                        Plot.getTreeMapPlotWithNegForStats(df[1])])
                                     for df in df_stats],
                                 label="Stats"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_totals, 'total'),
                                      Plot.getTreeMapPlot(df_totals),
-                                     Table.get_table(df_totals),],
+                                     Table.get_table(df_totals), ],
                                  label="Totals"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
@@ -457,8 +483,9 @@ def main():
                                  label="XIRR")])))
                 tabs.append(
                     dcc.Tab(
-                        label=positions['name'],
+                        label=account.name,
                         children=tables))
+
 
     OPERATIONS_HELPER.commit()
     OPERATIONS.commit()
@@ -470,6 +497,10 @@ def main():
 
     FIRST_DATE_TRADES.commit()
     FIRST_DATE_TRADES.close()
+
+    INSTRUMENTS_HELPER.commit()
+    INSTRUMENTS.commit()
+    INSTRUMENTS.close()
 
     if start_server:
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
