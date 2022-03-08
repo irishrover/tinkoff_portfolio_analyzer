@@ -1,9 +1,19 @@
-from dataclasses import dataclass, field
-from typing import List, DefaultDict
-import datetime
-from enum import Enum
-import collections
+from locale import currency
+import sys
+sys.path.append('gen')
+
+import logging
+from gen import users_pb2
+from gen import users_pb2_grpc
+from gen import operations_pb2_grpc
+from gen import operations_pb2
 from models.base_classes import InstrumentType, Money, Currency
+import collections
+from enum import Enum
+import datetime
+from typing import List, DefaultDict
+from dataclasses import dataclass, field
+
 
 
 class AccountType(Enum):
@@ -31,53 +41,50 @@ class Account:
         default_factory=collections.defaultdict)
 
 
-def V1ToV2SinglePortfolio(positions) -> List[Position]:
+def V2ToV2SinglePortfolio(positions) -> List[Position]:
 
-    def MoneyV1ToV2(v):
-        return Money(currency=Currency(v.currency), amount=v.value)
+    def MoneyV2ToV2(v, currency=None):
+        return Money(
+            currency=Currency(
+                currency.upper() if currency else v.currency.upper()),
+            amount=v.units + v.nano / 1000000000)
+
+    def prepare_type(t):
+        t = t.title()
+        if t == 'Share':
+            t = 'Stock'
+        return t
 
     result = []
     for p in positions:
+        quantity = p.quantity.units + p.quantity.nano / 1000000000
+        curr_price = MoneyV2ToV2(p.current_price)
+        avg_price = MoneyV2ToV2(p.average_position_price)
+        yield_price = Money(avg_price.currency,
+                            (curr_price.amount - avg_price.amount) * quantity)
         pos = Position(
-            InstrumentType(str(p.instrument_type)),
-            figi=p.figi,
-            quantity=p.balance,
-            average_price=MoneyV1ToV2(p.average_position_price),
-            expected_yield=MoneyV1ToV2(p.expected_yield),
-            nkd=Money())
+            InstrumentType(prepare_type(p.instrument_type)),
+            figi=p.figi, quantity=quantity, average_price=avg_price,
+            expected_yield=yield_price, nkd=MoneyV2ToV2(p.current_nkd)
+            if p.current_nkd.currency else Money())
         result.append(pos)
 
     return result
 
+class V2:
 
-def V1ToV2Portofolio(accounts):
+    @staticmethod
+    def GetAccounts(channel, metadata):
+        users_stub = users_pb2_grpc.UsersServiceStub(channel)
+        return (acc for acc in users_stub.GetAccounts(
+            users_pb2.GetAccountsRequest(), metadata=metadata).accounts
+            if (acc.status == users_pb2.ACCOUNT_STATUS_OPEN) and
+            (acc.type in [users_pb2.ACCOUNT_TYPE_TINKOFF,
+                          users_pb2.ACCOUNT_TYPE_TINKOFF_IIS]))
 
-    def MoneyV1ToV2(v):
-        return Money(currency=Currency(v.currency), amount=v.value)
 
-    result = {}
-    for a in accounts:
-        account = Account(
-            id=a[0],
-            name=a[1]['name'],
-            type=AccountType.IIS
-            if a[1]['name'].endswith('Iis') else AccountType.BROKER,
-            positions=collections.defaultdict())
-        result[account.id] = account
-        for k, v in a[1]['positions'].items():
-            account.positions[k] = []
-            for p in v:
-                pos = Position(
-                    InstrumentType(str(p.instrument_type)),
-                    figi=p.figi,
-                    quantity=p.balance,
-                    average_price=MoneyV1ToV2(p.average_position_price),
-                    expected_yield=MoneyV1ToV2(p.expected_yield),
-                    nkd=Money())
-                account.positions[k].append(pos)
-    return result
-
-class PositionsHelper:
-
-    def __init__(self, positions):
-        pass
+    def GetPositions(channel, metadata, account_id):
+        operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
+        portfolio = operations_stub.GetPortfolio(
+            request=operations_pb2.PortfolioRequest(account_id=account_id), metadata=metadata)
+        return portfolio

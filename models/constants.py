@@ -67,9 +67,15 @@ def get_item_price(item, date, prices_helper):
     return prices_helper.get_price(item.figi, date)
 
 
-def get_item_yield(item, date, currency_helper):
+def get_item_nkd(item, date, currency_helper):
     return currency_helper.get_rate_for_date(
-        date, item.average_price.currency) * item.expected_yield.amount
+        date, item.nkd.currency) * item.nkd.amount * item.quantity
+
+
+def get_item_yield(item, date, currency_helper):
+    rate = currency_helper.get_rate_for_date(date, item.average_price.currency)
+    return rate * item.expected_yield.amount + get_item_nkd(
+        item, date, currency_helper)
 
 
 def get_item_yield_percent(item):
@@ -83,7 +89,7 @@ def get_item_value(item, date, currency_helper):
     rate = currency_helper.get_rate_for_date(
         date, item.average_price.currency)
     return rate * (item.expected_yield.amount +
-                   item.quantity * item.average_price.amount)
+                   item.quantity * (item.average_price.amount + item.nkd.amount))
 
 
 def get_item_orig_value(item):

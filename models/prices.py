@@ -61,7 +61,6 @@ class PriceHelper:
             "to": PriceHelper.timestamp_from_datetime(max_date),
             "interval": "CANDLE_INTERVAL_DAY",
         })
-        print(figi, min_date, max_date)
         candles = self.__market_stub.GetCandles(
             request=request, metadata=self.__metadata)
         result = []

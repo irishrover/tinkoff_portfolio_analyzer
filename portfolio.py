@@ -1,3 +1,6 @@
+
+import sys
+
 import argparse
 import datetime
 import locale
@@ -20,6 +23,7 @@ from models import prices, stats
 from models.base_classes import Currency
 from views.plots import Plot
 from views.tables import Table
+from gen import users_pb2
 
 DB_NAME = 'my_db.sqlite'
 TOKEN = Path('.token').read_text()
@@ -84,59 +88,42 @@ def get_rub_position(rubs):
     return rub_position
 
 
-def get_portoflio_parsed(client, account_id):
-    portfolio = client.portfolio.portfolio_get(broker_account_id=account_id)
-    rubs = get_rub_total(client, account_id)
-    rub_position = get_rub_position(rubs)
-    portfolio.payload.positions.append(rub_position)
-    return portfolio.payload.positions
+def get_portoflio_parsed(channel, metadata, account_id):
+    # TODO: add RUB
+    # rubs = get_rub_total(client, account_id)
+    # rub_position = get_rub_position(rubs)
+    # portfolio.payload.positions.append(rub_position)
+    return pstns.V2.GetPositions(channel, metadata, account_id)
 
 
-def update_portfolios(client, all_accounts):
-    #positions2 = pstns.V1ToV2Portofolio(accounts.items())
-    accounts_list = client.user.user_accounts_get()
-    assert accounts_list.status == "Ok"
-    for account in accounts_list.payload.accounts:
+def update_portfolios(all_accounts, channel, metadata):
+    accounts = list(pstns.V2.GetAccounts(channel, metadata))
+    for account in accounts:
         logging.info(
-            "update_portfolios '%s' [%s: %s]", account.broker_account_type,
-            account.broker_account_id, account.broker_account_type)
-        if account.broker_account_id not in all_accounts:
-            all_accounts[account.broker_account_id] = pstns.Account(
-                id=account.broker_account_id, name=account.name)
+            "update_portfolios '%s' [%s]", account.name, account.id)
+        if account.id not in all_accounts:
 
-        account_positions = all_accounts[account.broker_account_id]
+            # ZZZ
+            continue
+            logging.info(
+                "create a new portfolio '%s' [%s]", account.name, account.id)
+            all_accounts[account.id] = pstns.Account(id=account.id,
+                                                     name=account.name, type=pstns.AccountType.BROKER
+                                                     if account.type == users_pb2.ACCOUNT_TYPE_TINKOFF else
+                                                     users_pb2.ACCOUNT_TYPE_TINKOFF_IIS)
 
-        # FreedomFinance bug workaround
-        if False:
-            k = max(account_positions["positions"].keys())
-            freedomFinance = None
-            for p in account_positions["positions"][k]:
-                if p.figi == 'BBG00RMFNJQ7':
-                    p.average_position_price.value = 1019.1266
-                    p.expected_yield.value = (
-                        1005 - p.average_position_price.value) * p.balance
-                    freedomFinance = p
-                    break
-            assert freedomFinance is not None, k
+        account_positions = all_accounts[account.id]
 
         fetch_date = cnst.NOW.date()
+        account_positions.positions[fetch_date] = pstns.V2ToV2SinglePortfolio(
+            get_portoflio_parsed(channel, metadata, account.id).positions)
 
-        portoflio_parsed = pstns.V1ToV2SinglePortfolio(
-            get_portoflio_parsed(client, account.broker_account_id))
-
-        #for p in portoflio_parsed:
-        #    if p.figi == 'BBG00RMFNJQ7':
-        #        assert False
-        #if False:
-        #    portoflio_parsed.append(freedomFinance)
-
-        account_positions.positions[fetch_date] = portoflio_parsed
         if False:
-            l = list(account_positions["positions"].keys())
+            l = list(account_positions.positions.keys())
             for ll in l:
-                if ll > datetime.date(2022, 2, 25) and ll <= fetch_date:
-                    del account_positions["positions"][ll]
-        all_accounts[account.broker_account_id] = account_positions
+                if ll > datetime.date(2022, 2, 23) and ll <= fetch_date:
+                    del account_positions.positions[ll]
+        all_accounts[account.id] = account_positions
 
 
 def pretty_print_date_diff(day, diff):
@@ -410,10 +397,11 @@ def main():
     OPERATIONS_HELPER = operations.OperationsHelper(
         client, CURRENCY_HELPER, OPERATIONS)
 
+
     with SqliteDict(DB_NAME,
                     tablename='accounts',
                     autocommit=True) as accounts:
-        update_portfolios(client, accounts)
+        update_portfolios(accounts, channel, metadata)
         accounts.commit()
 
         tabs = []
