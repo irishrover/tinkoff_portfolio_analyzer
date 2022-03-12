@@ -1,19 +1,17 @@
-from locale import currency
+
 import sys
 sys.path.append('gen')
 
-import logging
-from gen import users_pb2
-from gen import users_pb2_grpc
-from gen import operations_pb2_grpc
-from gen import operations_pb2
-from models.base_classes import InstrumentType, Money, Currency
-import collections
-from enum import Enum
-import datetime
-from typing import List, DefaultDict
-from dataclasses import dataclass, field
 
+from dataclasses import dataclass, field
+from enum import Enum
+from gen import operations_pb2, operations_pb2_grpc
+from gen import users_pb2, users_pb2_grpc
+from models import constants
+from models.base_classes import InstrumentType, Money, Currency
+from typing import List, DefaultDict
+import collections
+import datetime
 
 
 class AccountType(Enum):
@@ -82,9 +80,26 @@ class V2:
             (acc.type in [users_pb2.ACCOUNT_TYPE_TINKOFF,
                           users_pb2.ACCOUNT_TYPE_TINKOFF_IIS]))
 
+    @staticmethod
+    def GetRubPosition(channel, metadata, account_id):
+        operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
+        positions = operations_stub.GetPositions(
+            operations_pb2.PositionsRequest(account_id=account_id),
+            metadata=metadata)
+        for m in positions.money:
+            if m.currency.upper() == Currency.RUB.name:
+                return Position(
+                    InstrumentType.CURRENCY, figi=constants.FAKE_RUB_FIGI,
+                    quantity=m.units + m.nano / 1000000000,
+                    average_price=Money(Currency.RUB, 1.0),
+                    expected_yield=Money(Currency.RUB, 0.0),
+                    nkd=Money(Currency.RUB, 0.0))
+        assert False
 
+    @staticmethod
     def GetPositions(channel, metadata, account_id):
         operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
         portfolio = operations_stub.GetPortfolio(
-            request=operations_pb2.PortfolioRequest(account_id=account_id), metadata=metadata)
+            operations_pb2.PortfolioRequest(account_id=account_id),
+            metadata=metadata)
         return portfolio

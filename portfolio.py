@@ -70,29 +70,7 @@ def get_client():
             replace_token = True
 
 
-def get_rub_total(client, account_id):
-    for c in client.portfolio.portfolio_currencies_get(
-            broker_account_id=account_id).payload.currencies:
-        if c.currency == 'RUB':
-            return c.balance
-    return 0.0
-
-
-def get_rub_position(rubs):
-    rub_position = models.portfolio_position.PortfolioPosition(
-        ticker='RUB',
-        figi='FAKE_RUB_FIGI', instrument_type='Currency', balance=rubs, lots=1,
-        name='Российский рубль', average_position_price=models.MoneyAmount(
-            currency='RUB', value=1.0), expected_yield=models.MoneyAmount(
-            currency='RUB', value=0.0))
-    return rub_position
-
-
 def get_portoflio_parsed(channel, metadata, account_id):
-    # TODO: add RUB
-    # rubs = get_rub_total(client, account_id)
-    # rub_position = get_rub_position(rubs)
-    # portfolio.payload.positions.append(rub_position)
     return pstns.V2.GetPositions(channel, metadata, account_id)
 
 
@@ -115,8 +93,10 @@ def update_portfolios(all_accounts, channel, metadata):
         account_positions = all_accounts[account.id]
 
         fetch_date = cnst.NOW.date()
-        account_positions.positions[fetch_date] = pstns.V2ToV2SinglePortfolio(
+        positions = pstns.V2ToV2SinglePortfolio(
             get_portoflio_parsed(channel, metadata, account.id).positions)
+        positions.append(pstns.V2.GetRubPosition(channel, metadata, account.id))
+        account_positions.positions[fetch_date] = positions
 
         if False:
             l = list(account_positions.positions.keys())
@@ -395,7 +375,7 @@ def main():
         INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES, channel, metadata)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
     OPERATIONS_HELPER = operations.OperationsHelper(
-        client, CURRENCY_HELPER, OPERATIONS)
+        client, channel, metadata, CURRENCY_HELPER, OPERATIONS)
 
 
     with SqliteDict(DB_NAME,

@@ -12,7 +12,6 @@ import marketdata_pb2
 class PriceHelper:
 
     DAYS_TO_FETCH = 180
-    FAKE_RUB_FIGI = 'FAKE_RUB_FIGI'
     USER_TIMEZONE = pytz.timezone('Europe/Moscow')
 
     def __init__(
@@ -117,7 +116,7 @@ class PriceHelper:
         return self.__prices_dict[figi].get(d, 0.0)
 
     def get_price(self, figi, d):
-        if figi == self.FAKE_RUB_FIGI:
+        if figi == constants.FAKE_RUB_FIGI:
             return 1.0
         d = constants.prepare_date(d)
         assert d <= constants.NOW.date()
@@ -126,7 +125,7 @@ class PriceHelper:
         return value
 
     def get_first_trade_date(self, figi):
-        if figi == self.FAKE_RUB_FIGI:
+        if figi == constants.FAKE_RUB_FIGI:
             return constants.prepare_date(datetime.date.min)
         if figi in self.__first_trade_dates_dict:
             return self.__first_trade_dates_dict[figi]
