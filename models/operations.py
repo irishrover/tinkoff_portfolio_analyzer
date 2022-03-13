@@ -19,14 +19,9 @@ def timestamp_from_datetime(dt):
     return ts
 
 
-def seconds_to_date(d):
-    return datetime.datetime.fromtimestamp(
-        max(0, d.seconds + d.nanos / 1000000000), constants.TIMEZONE)
-
-
 def value_to_money(v):
     return Money(currency=Currency(v.currency.upper()),
-                 amount=v.units + v.nano / 1000000000)
+                 amount=constants.sum_units_nano(v))
 
 
 class Operation(Enum):
@@ -133,7 +128,7 @@ class OperationsHelper:
         for o in operations.operations:
             operations_v2.append(
                 OperationItem(
-                    id=o.id, date=seconds_to_date(o.date),
+                    id=o.id, date=constants.seconds_to_time(o.date),
                     figi=o.figi, operation_type=Operation(int(o.operation_type)),
                     payment=value_to_money(o.payment)))
 

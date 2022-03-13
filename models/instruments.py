@@ -46,24 +46,18 @@ class InstrumentsHelper:
 
     def __update(self):
 
-        def parse_date(d):
-            return datetime.fromtimestamp(
-                max(0, d.seconds + d.nanos / 1000000000),
-                self.USER_TIMEZONE)
-
         def ToCurrency(v):
             return Currency(v.upper())
 
         def parse_bond(v) -> Instrument:
-            d1 = parse_date(v.placement_date)
-            d2 = parse_date(v.maturity_date)
+            d1 = constants.seconds_to_time(v.placement_date)
+            d2 = constants.seconds_to_time(v.maturity_date)
             return Instrument(instrument_type=InstrumentType.BOND,
                               currency=v.currency, figi=v.figi, ticker=v.ticker,
                               name=v.name,
                               nominal=Money(
                                   currency=ToCurrency(v.nominal.currency),
-                                  amount=v.nominal.units + v.nominal.nano /
-                                  1000000000),
+                                  amount=constants.sum_units_nano(v.nominal)),
                               first_trade_date=d1,
                               last_trade_date=d2,
                               country=v.country_of_risk, sector=v.sector)
@@ -74,8 +68,7 @@ class InstrumentsHelper:
                               name=v.name,
                               nominal=Money(
                                   currency=ToCurrency(v.nominal.currency),
-                                  amount=v.nominal.units + v.nominal.nano /
-                                  1000000000),
+                                  amount=constants.sum_units_nano(v.nominal)),
                               first_trade_date=datetime.min,
                               last_trade_date=datetime.max,
                               country=v.country_of_risk)

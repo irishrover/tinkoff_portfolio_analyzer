@@ -45,7 +45,7 @@ def V2ToV2SinglePortfolio(positions) -> List[Position]:
         return Money(
             currency=Currency(
                 currency.upper() if currency else v.currency.upper()),
-            amount=v.units + v.nano / 1000000000)
+            amount=constants.sum_units_nano(v))
 
     def prepare_type(t):
         t = t.title()
@@ -55,7 +55,7 @@ def V2ToV2SinglePortfolio(positions) -> List[Position]:
 
     result = []
     for p in positions:
-        quantity = p.quantity.units + p.quantity.nano / 1000000000
+        quantity = constants.sum_units_nano(p.quantity)
         curr_price = MoneyV2ToV2(p.current_price)
         avg_price = MoneyV2ToV2(p.average_position_price)
         yield_price = Money(avg_price.currency,
@@ -90,7 +90,7 @@ class V2:
             if m.currency.upper() == Currency.RUB.name:
                 return Position(
                     InstrumentType.CURRENCY, figi=constants.FAKE_RUB_FIGI,
-                    quantity=m.units + m.nano / 1000000000,
+                    quantity=constants.sum_units_nano(m),
                     average_price=Money(Currency.RUB, 1.0),
                     expected_yield=Money(Currency.RUB, 0.0),
                     nkd=Money(Currency.RUB, 0.0))

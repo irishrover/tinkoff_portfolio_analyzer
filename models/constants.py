@@ -1,7 +1,7 @@
 import bisect
 import datetime
-
-from pytz import timezone
+from pytz import timezone, utc
+from google.protobuf.timestamp_pb2 import Timestamp
 
 DATE_FORMAT = "%d.%m.%y %a"
 TIMEZONE = timezone('Europe/Moscow')
@@ -20,6 +20,15 @@ def prepare_date(d):
         d = d.date()
     return d
 
+def sum_units_nano(v):
+    return v.units + v.nano / 1000000000
+
+def seconds_to_time(d):
+    return datetime.datetime.fromtimestamp(
+        max(0, d.seconds + d.nanos / 1000000000), TIMEZONE)
+
+def timestamp_from_datetime(dt):
+    return Timestamp(seconds=int(dt.replace(tzinfo=utc).timestamp()))
 
 def daterange(start_date, end_date):
     for n in range(1 + int((end_date - start_date).days)):

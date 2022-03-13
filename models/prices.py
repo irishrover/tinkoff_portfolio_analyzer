@@ -3,8 +3,6 @@ sys.path.append('gen')
 
 from models import constants
 import datetime
-from google.protobuf.timestamp_pb2 import Timestamp
-import pytz
 import marketdata_pb2_grpc
 import marketdata_pb2
 
@@ -12,7 +10,6 @@ import marketdata_pb2
 class PriceHelper:
 
     DAYS_TO_FETCH = 180
-    USER_TIMEZONE = pytz.timezone('Europe/Moscow')
 
     def __init__(
         self, instruments_helper, prices, first_trade_dates,
@@ -38,15 +35,10 @@ class PriceHelper:
             self.__prices_dict[figi] = data
 
     @staticmethod
-    def timestamp_from_datetime(dt):
-        ts = Timestamp(seconds=int(dt.replace(tzinfo=pytz.utc).timestamp()))
-        return ts
-
-    @staticmethod
     def combine_dates(date, time):
         return datetime.datetime.combine(
             date, time).astimezone(
-            PriceHelper.USER_TIMEZONE)
+            constants.TIMEZONE)
 
     def commit(self):
         constants.dict2db(self.__prices_dict, self.__prices)
@@ -56,8 +48,8 @@ class PriceHelper:
     def get_candles(self, figi, min_date, max_date):
         request = marketdata_pb2.GetCandlesRequest(**{
             "figi": figi,
-            "from": PriceHelper.timestamp_from_datetime(min_date),
-            "to": PriceHelper.timestamp_from_datetime(max_date),
+            "from": constants.timestamp_from_datetime(min_date),
+            "to": constants.timestamp_from_datetime(max_date),
             "interval": "CANDLE_INTERVAL_DAY",
         })
         candles = self.__market_stub.GetCandles(
@@ -65,10 +57,9 @@ class PriceHelper:
         result = []
         rate = self.__instruments_helper.get_by_figi(figi).nominal_rate()
         for c in candles.candles:
-            d = datetime.datetime.fromtimestamp(
-                c.time.seconds + c.time.nanos/1000000000, PriceHelper.USER_TIMEZONE).date()
+            d = constants.seconds_to_time(c.time).date()
             result.append(
-                (d, rate * (c.close.units + c.close.nano / 1000000000.0)))
+                (d, rate * constants.sum_units_nano(c.close)))
 
         return result
 
@@ -125,10 +116,10 @@ class PriceHelper:
         return value
 
     def get_first_trade_date(self, figi):
-        if figi == constants.FAKE_RUB_FIGI:
-            return constants.prepare_date(datetime.date.min)
         if figi in self.__first_trade_dates_dict:
             return self.__first_trade_dates_dict[figi]
+        if figi == constants.FAKE_RUB_FIGI:
+            return constants.prepare_date(datetime.date.min)
         today = constants.NOW.date()
         time_delta = datetime.timedelta(days=360)
         min_date = PriceHelper.combine_dates(
