@@ -164,6 +164,12 @@ def tune_df(df, key_dates, allowed_items, disallowed_dates):
 
 
 def get_data_frame_by_portfolio(account_id, portfolio):
+
+    def insert_row(df, data):
+        df.loc[-1] = data
+        df.index = df.index + 1
+        df.sort_index(inplace=True)
+
     logging.info('get_data_frame_by_portfolio [%s]', account_id)
 
     key_dates = sorted(portfolio.keys())
@@ -277,23 +283,29 @@ def get_data_frame_by_portfolio(account_id, portfolio):
               v in payins_operations.items()}
     payouts = {k.strftime(cnst.DATE_FORMAT): v for k,
                v in payouts_operations.items()}
-    df_percents.loc[0] = cnst.SUMMARY_COLUMNS + list(
-        100 * (df_totals[x].sum() / payins[x] - 1.0)
-        for x in df_percents.columns[cnst.SUMMARY_COLUMNS_SIZE:])
-
-    print(df_yields)
-    df_yields.loc[0] = cnst.SUMMARY_COLUMNS + list(df_yields[x].sum() for x in df_yields.columns[cnst.SUMMARY_COLUMNS_SIZE:])
-    print(df_yields)
-
+    insert_row(
+        df_percents, cnst.SUMMARY_COLUMNS +
+        list(
+            100 * (df_totals[x].sum() / payins[x] - 1.0)
+            for x in df_percents.columns[cnst.SUMMARY_COLUMNS_SIZE:]))
+    insert_row(
+        df_yields, cnst.SUMMARY_COLUMNS +
+        list(
+            df_yields[x].sum()
+            for x in df_yields.columns[cnst.SUMMARY_COLUMNS_SIZE:]))
     dates_totals = {
         x: df_totals.iloc[:, i + cnst.SUMMARY_COLUMNS_SIZE].sum() for i,
         x in enumerate(key_dates)}
-    df_xirrs.loc[0] = cnst.SUMMARY_COLUMNS + list(
-        OPERATIONS_HELPER.get_total_xirr(account_id, dates_totals).values())
+    insert_row(df_xirrs, cnst.SUMMARY_COLUMNS +
+               list(
+                   OPERATIONS_HELPER.get_total_xirr(
+                       account_id, dates_totals).values()))
 
-    df_totals.loc[0] = cnst.SUMMARY_COLUMNS + list(
-        df_totals[x].sum() - (payins[x] + payouts[x])
-        for x in df_totals.columns[cnst.SUMMARY_COLUMNS_SIZE:])
+    insert_row(
+        df_totals, cnst.SUMMARY_COLUMNS +
+        list(
+            df_totals[x].sum() - (payins[x] + payouts[x])
+            for x in df_totals.columns[cnst.SUMMARY_COLUMNS_SIZE:]))
 
     df_usd = get_usd_df(key_dates)
 
