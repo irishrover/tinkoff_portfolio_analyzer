@@ -34,8 +34,6 @@ class Instrument:
 
 class InstrumentsHelper:
 
-    USER_TIMEZONE = pytz.timezone('Europe/Moscow')
-
     def __init__(self, channel, metadata, instruments):
         self.__instruments = instruments
         self.__instruments_dict = constants.db2dict(self.__instruments)

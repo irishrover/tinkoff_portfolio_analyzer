@@ -7,9 +7,9 @@ from bisect import bisect_left
 from collections import OrderedDict, defaultdict
 
 from models import constants as cnst
-from models.operations import Operation
-from models.base_classes import Money, Currency
 from models import currency, instruments, operations, positions
+from models.base_classes import Money, Currency
+from models.operations import Operation
 
 
 DAY_RANGES = OrderedDict(reversed({
@@ -47,6 +47,9 @@ class DayRangeHelper:
             if abs(days[pos] - day) >= abs(day - days[pos - 1]):
                 return pos - 1
             return pos
+
+        if len(days) <= 1:
+            return []
 
         ref_date = days[-1]
         result = []
@@ -117,11 +120,11 @@ class PortfolioComparer:
             if all_operations[op][d1] != all_operations[op][d2]:
                 result.append(
                     PortfolioComparer.__get_total_row(
-                        f"[{op.name}]", all_operations[op][d1],
+                        f"[{op.name.title()}]", all_operations[op][d1],
                         all_operations[op][d2]))
 
-        payins = all_operations[Operation.PayIn]
-        payouts = all_operations[Operation.PayOut]
+        payins = all_operations[Operation.INPUT]
+        payouts = all_operations[Operation.OUTPUT]
         pay_in_out_1 = payins[d1] + payouts[d1]
         pay_in_out_2 = payins[d2] + payouts[d2]
         result.append(("[Total Yield]", "", *

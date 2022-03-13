@@ -1,29 +1,27 @@
-
 import sys
+sys.path.append('gen')
 
+from collections import defaultdict
+from pathlib import Path
 import argparse
 import datetime
 import locale
 import logging
-from collections import defaultdict
-from pathlib import Path
 
+from dash import Dash, dcc, html
+from sqlitedict import SqliteDict
 import grpc
 import pandas as pd
-from dash import Dash, dcc, html
-from openapi_client import openapi
-from openapi_genclient import models
-from openapi_genclient.exceptions import ApiValueError
-from sqlitedict import SqliteDict
 
+from gen import users_pb2
 from models import constants as cnst
 from models import currency, instruments, operations, positions
 from models import positions as pstns
 from models import prices, stats
 from models.base_classes import Currency
+from models.operations import Operation
 from views.plots import Plot
 from views.tables import Table
-from gen import users_pb2
 
 DB_NAME = 'my_db.sqlite'
 TOKEN = Path('.token').read_text()
@@ -48,28 +46,6 @@ INSTRUMENTS = SqliteDict(DB_NAME, tablename='instruments', autocommit=True)
 INSTRUMENTS_HELPER = None
 
 
-def get_client():
-
-    def get_token(replace):
-        with SqliteDict(DB_NAME,
-                        tablename='tokens',
-                        autocommit=True) as tokens:
-            if replace or ('token' not in tokens):
-                tokens['token'] = input('Enter token: ')
-            return tokens['token']
-
-    # Try to authorize
-    replace_token = False
-    while True:
-        try:
-            client = openapi.api_client(get_token(replace_token))
-            # Just to test that the token is valid
-            client.user.user_accounts_get()
-            return client
-        except ApiValueError:
-            replace_token = True
-
-
 def get_portoflio_parsed(channel, metadata, account_id):
     return pstns.V2.GetPositions(channel, metadata, account_id)
 
@@ -80,9 +56,8 @@ def update_portfolios(all_accounts, channel, metadata):
         logging.info(
             "update_portfolios '%s' [%s]", account.name, account.id)
         if account.id not in all_accounts:
-
             # ZZZ
-            continue
+            #continue
             logging.info(
                 "create a new portfolio '%s' [%s]", account.name, account.id)
             all_accounts[account.id] = pstns.Account(id=account.id,
@@ -132,8 +107,8 @@ def get_full_name(item: positions.Position):
                 item.instrument_type,
                 'RUB')
     return (f'{instrument_data.name} ${instrument_data.ticker}',
-            item.instrument_type.name,
-            item.average_price.currency.name)
+            item.instrument_type.name.title(),
+            item.average_price.currency.name.title())
 
 
 def get_usd_df(key_dates):
@@ -218,15 +193,11 @@ def get_data_frame_by_portfolio(account_id, portfolio):
             date_totals[d][full_name] = cnst.get_item_value(
                 item, d, CURRENCY_HELPER)
             date_xirrs_tmp[(item.figi, full_name)
-                           ][d] = cnst.get_item_orig_value(item)
+                            ][d] = cnst.get_item_orig_value(item)
             date_percents[d][full_name] = cnst.get_item_yield_percent(item)
 
         d_time_delta = d - datetime.timedelta(days=7)
         for item in all_items.values():
-            # ZZZ: Freedom Finance
-            if False:
-                if item.figi == 'BBG00RMFNJQ7':
-                    continue
             full_name = get_full_name(item)[0]
             p_curr = cnst.mean(
                 cnst.get_item_price(item, d - datetime.timedelta(days=delta), PRICES_HELPER)
@@ -242,9 +213,13 @@ def get_data_frame_by_portfolio(account_id, portfolio):
 
     # Fill XIRRs separately.
     for k, v in date_xirrs_tmp.items():
-        xirrs = OPERATIONS_HELPER.get_item_xirrs(account_id, k[0], v)
-        for d in key_dates:
-            date_xirrs[d][k[1]] = xirrs[d]
+        if k[0] != cnst.USD_FIGI:
+            xirrs = OPERATIONS_HELPER.get_item_xirrs(account_id, k[0], v)
+            for d in key_dates:
+                date_xirrs[d][k[1]] = xirrs[d]
+        else:
+            for d in key_dates:
+                date_xirrs[d][k[1]] = 0
 
     allowed_items = [
         cnst.TITLE_FOR_SUMMARY] + list(date_yields[max(key_dates)].keys())
@@ -295,9 +270,9 @@ def get_data_frame_by_portfolio(account_id, portfolio):
     df_stats = get_stats_df(account_id, portfolio, key_dates)
 
     payins_operations = OPERATIONS_HELPER.get_operations_by_dates(
-        account_id, key_dates, operations.Operation.PayIn)
+        account_id, key_dates, Operation.INPUT)
     payouts_operations = OPERATIONS_HELPER.get_operations_by_dates(
-        account_id, key_dates, operations.Operation.PayOut)
+        account_id, key_dates, Operation.OUTPUT)
     payins = {k.strftime(cnst.DATE_FORMAT): v for k,
               v in payins_operations.items()}
     payouts = {k.strftime(cnst.DATE_FORMAT): v for k,
@@ -305,9 +280,10 @@ def get_data_frame_by_portfolio(account_id, portfolio):
     df_percents.loc[0] = cnst.SUMMARY_COLUMNS + list(
         100 * (df_totals[x].sum() / payins[x] - 1.0)
         for x in df_percents.columns[cnst.SUMMARY_COLUMNS_SIZE:])
-    df_yields.loc[0] = cnst.SUMMARY_COLUMNS + \
-        list(df_yields[x].sum()
-             for x in df_yields.columns[cnst.SUMMARY_COLUMNS_SIZE:])
+
+    print(df_yields)
+    df_yields.loc[0] = cnst.SUMMARY_COLUMNS + list(df_yields[x].sum() for x in df_yields.columns[cnst.SUMMARY_COLUMNS_SIZE:])
+    print(df_yields)
 
     dates_totals = {
         x: df_totals.iloc[:, i + cnst.SUMMARY_COLUMNS_SIZE].sum() for i,
@@ -363,8 +339,6 @@ def main():
     parse_cmd_line()
     logging.info("main is starting")
 
-    client = get_client()
-
     channel = grpc.secure_channel(
         'invest-public-api.tinkoff.ru:443', grpc.ssl_channel_credentials())
     metadata = (('authorization', 'Bearer ' + TOKEN),)
@@ -374,8 +348,7 @@ def main():
     PRICES_HELPER = prices.PriceHelper(
         INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES, channel, metadata)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
-    OPERATIONS_HELPER = operations.OperationsHelper(
-        client, channel, metadata, CURRENCY_HELPER, OPERATIONS)
+    OPERATIONS_HELPER = operations.OperationsHelper(channel, metadata, CURRENCY_HELPER, OPERATIONS)
 
 
     with SqliteDict(DB_NAME,

@@ -12,6 +12,7 @@ SUMMARY_COLUMNS = [TITLE_FOR_SUMMARY, '', '']
 SUMMARY_COLUMNS_SIZE = len(SUMMARY_COLUMNS)
 MOVING_AVERAGE_DAYS = 7 * 4
 FAKE_RUB_FIGI = 'FAKE_RUB_FIGI'
+USD_FIGI = 'BBG0013HGFT4'
 
 
 def prepare_date(d):
@@ -96,8 +97,3 @@ def get_item_orig_value(item):
     return item.expected_yield.amount + \
         item.quantity * item.average_price.amount
 
-
-def get_xirr_value(account, item, d, operations_helper):
-    d = datetime.datetime.combine(d, datetime.time.max).astimezone()
-    return operations_helper.get_item_xirrs(
-        account, item.figi, {d: get_item_orig_value(item)})[d]
