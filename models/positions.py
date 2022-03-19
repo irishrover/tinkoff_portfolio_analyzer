@@ -72,20 +72,18 @@ def V2ToV2SinglePortfolio(positions) -> List[Position]:
 class V2:
 
     @staticmethod
-    def GetAccounts(channel, metadata):
-        users_stub = users_pb2_grpc.UsersServiceStub(channel)
-        return (acc for acc in users_stub.GetAccounts(
-            users_pb2.GetAccountsRequest(), metadata=metadata).accounts
+    def GetAccounts(api_context):
+        return (acc for acc in api_context.users().GetAccounts(
+            users_pb2.GetAccountsRequest(), metadata=api_context.metadata()).accounts
             if (acc.status == users_pb2.ACCOUNT_STATUS_OPEN) and
             (acc.type in [users_pb2.ACCOUNT_TYPE_TINKOFF,
                           users_pb2.ACCOUNT_TYPE_TINKOFF_IIS]))
 
     @staticmethod
-    def GetRubPosition(channel, metadata, account_id):
-        operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
-        positions = operations_stub.GetPositions(
+    def GetRubPosition(api_context, account_id):
+        positions = api_context.operations().GetPositions(
             operations_pb2.PositionsRequest(account_id=account_id),
-            metadata=metadata)
+            metadata=api_context.metadata())
         for m in positions.money:
             if m.currency.upper() == Currency.RUB.name:
                 return Position(
@@ -97,9 +95,7 @@ class V2:
         assert False
 
     @staticmethod
-    def GetPositions(channel, metadata, account_id):
-        operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
-        portfolio = operations_stub.GetPortfolio(
+    def GetPositions(api_context, account_id):
+        return api_context.operations().GetPortfolio(
             operations_pb2.PortfolioRequest(account_id=account_id),
-            metadata=metadata)
-        return portfolio
+            metadata=api_context.metadata())

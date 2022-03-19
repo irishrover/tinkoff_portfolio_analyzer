@@ -92,12 +92,12 @@ class OperationsHelper:
          Operation.DIVIDEND])
     PAY_IN_OUT_NAMES_SET = frozenset([Operation.INPUT, Operation.OUTPUT])
 
-    def __init__(self, channel, metadata, currency_helper, operations):
+
+    def __init__(self, api_context, currency_helper, operations):
         self.__operations = operations
+        self.__api_context = api_context
         self.__operations_dict = constants.db2dict(self.__operations)
         self.__currency_helper = currency_helper
-        self.__operations_stub = operations_pb2_grpc.OperationsServiceStub(channel)
-        self.__metadata = metadata
 
 
     def commit(self):
@@ -123,7 +123,8 @@ class OperationsHelper:
             "state": operations_pb2.OperationState.OPERATION_STATE_EXECUTED,
             "from": timestamp_from_datetime(min_date),
             "to": timestamp_from_datetime(max_date)})
-        operations = self.__operations_stub.GetOperations(request=request, metadata=self.__metadata)
+        operations = self.__api_context.operations().GetOperations(
+            request=request, metadata=self.__api_context.metadata())
         operations_v2 = []
         for o in operations.operations:
             operations_v2.append(

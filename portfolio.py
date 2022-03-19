@@ -18,7 +18,7 @@ from models import constants as cnst
 from models import currency, instruments, operations, positions
 from models import positions as pstns
 from models import prices, stats
-from models.base_classes import Currency
+from models.base_classes import ApiContext, Currency
 from models.operations import Operation
 from views.plots import Plot
 from views.tables import Table
@@ -31,6 +31,8 @@ pd.options.display.float_format = '{:,.2f}'.format
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', 50)
 pd.set_option('display.width', 1000)
+
+API_CONTEXT = None
 
 OPERATIONS = SqliteDict(DB_NAME, tablename='operations', autocommit=True)
 OPERATIONS_HELPER = None
@@ -46,18 +48,16 @@ INSTRUMENTS = SqliteDict(DB_NAME, tablename='instruments', autocommit=True)
 INSTRUMENTS_HELPER = None
 
 
-def get_portoflio_parsed(channel, metadata, account_id):
-    return pstns.V2.GetPositions(channel, metadata, account_id)
+def get_portoflio_parsed(api_context, account_id):
+    return pstns.V2.GetPositions(api_context, account_id)
 
 
-def update_portfolios(all_accounts, channel, metadata):
-    accounts = list(pstns.V2.GetAccounts(channel, metadata))
+def update_portfolios(all_accounts, api_context):
+    accounts = list(pstns.V2.GetAccounts(api_context))
     for account in accounts:
         logging.info(
             "update_portfolios '%s' [%s]", account.name, account.id)
         if account.id not in all_accounts:
-            # ZZZ
-            #continue
             logging.info(
                 "create a new portfolio '%s' [%s]", account.name, account.id)
             all_accounts[account.id] = pstns.Account(id=account.id,
@@ -69,15 +69,9 @@ def update_portfolios(all_accounts, channel, metadata):
 
         fetch_date = cnst.NOW.date()
         positions = pstns.V2ToV2SinglePortfolio(
-            get_portoflio_parsed(channel, metadata, account.id).positions)
-        positions.append(pstns.V2.GetRubPosition(channel, metadata, account.id))
+            get_portoflio_parsed(api_context, account.id).positions)
+        positions.append(pstns.V2.GetRubPosition(api_context, account.id))
         account_positions.positions[fetch_date] = positions
-
-        if False:
-            l = list(account_positions.positions.keys())
-            for ll in l:
-                if ll > datetime.date(2022, 2, 23) and ll <= fetch_date:
-                    del account_positions.positions[ll]
         all_accounts[account.id] = account_positions
 
 
@@ -355,18 +349,18 @@ def main():
         'invest-public-api.tinkoff.ru:443', grpc.ssl_channel_credentials())
     metadata = (('authorization', 'Bearer ' + TOKEN),)
 
-    INSTRUMENTS_HELPER = instruments.InstrumentsHelper(
-        channel, metadata, INSTRUMENTS)
-    PRICES_HELPER = prices.PriceHelper(
-        INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES, channel, metadata)
+    API_CONTEXT = ApiContext(channel, metadata)
+
+    INSTRUMENTS_HELPER = instruments.InstrumentsHelper(API_CONTEXT, INSTRUMENTS)
+    PRICES_HELPER = prices.PriceHelper(API_CONTEXT, INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
-    OPERATIONS_HELPER = operations.OperationsHelper(channel, metadata, CURRENCY_HELPER, OPERATIONS)
+    OPERATIONS_HELPER = operations.OperationsHelper(API_CONTEXT, CURRENCY_HELPER, OPERATIONS)
 
 
     with SqliteDict(DB_NAME,
                     tablename='accounts',
                     autocommit=True) as accounts:
-        update_portfolios(accounts, channel, metadata)
+        update_portfolios(accounts, API_CONTEXT)
         accounts.commit()
 
         tabs = []

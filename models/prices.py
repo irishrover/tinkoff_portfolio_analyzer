@@ -12,12 +12,10 @@ class PriceHelper:
     DAYS_TO_FETCH = 180
 
     def __init__(
-        self, instruments_helper, prices, first_trade_dates,
-            channel, metadata):
+        self, api_context, instruments_helper, prices, first_trade_dates):
+        self.__api_context = api_context
         self.__prices = prices
         self.__prices_dict = constants.db2dict(self.__prices)
-        self.__market_stub = marketdata_pb2_grpc.MarketDataServiceStub(channel)
-        self.__metadata = metadata
 
         self.__instruments_helper = instruments_helper
         self.__first_trade_dates = first_trade_dates
@@ -52,8 +50,8 @@ class PriceHelper:
             "to": constants.timestamp_from_datetime(max_date),
             "interval": "CANDLE_INTERVAL_DAY",
         })
-        candles = self.__market_stub.GetCandles(
-            request=request, metadata=self.__metadata)
+        candles = self.__api_context.market().GetCandles(
+            request=request, metadata=self.__api_context.metadata())
         result = []
         rate = self.__instruments_helper.get_by_figi(figi).nominal_rate()
         for c in candles.candles:

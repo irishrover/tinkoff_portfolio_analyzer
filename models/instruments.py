@@ -34,11 +34,10 @@ class Instrument:
 
 class InstrumentsHelper:
 
-    def __init__(self, channel, metadata, instruments):
+    def __init__(self, api_context, instruments):
         self.__instruments = instruments
         self.__instruments_dict = constants.db2dict(self.__instruments)
-        self.__stub = instruments_pb2_grpc.InstrumentsServiceStub(channel)
-        self.__metadata = metadata
+        self.__api_context = api_context
 
 
     def commit(self):
@@ -100,20 +99,20 @@ class InstrumentsHelper:
         request = instruments_pb2.InstrumentsRequest(
             instrument_status='INSTRUMENT_STATUS_ALL')
 
-        for b in self.__stub.Bonds(
-                request, metadata=self.__metadata).instruments:
+        for b in self.__api_context.instruments().Bonds(
+                request, metadata=self.__api_context.metadata()).instruments:
             self.__instruments_dict[b.figi] = parse_bond(b)
 
-        for e in self.__stub.Etfs(
-                request, metadata=self.__metadata).instruments:
+        for e in self.__api_context.instruments().Etfs(
+                request, metadata=self.__api_context.metadata()).instruments:
             self.__instruments_dict[e.figi] = parse_etf(e)
 
-        for s in self.__stub.Shares(
-                request, metadata=self.__metadata).instruments:
+        for s in self.__api_context.instruments().Shares(
+                request, metadata=self.__api_context.metadata()).instruments:
             self.__instruments_dict[s.figi] = parse_share(s)
 
-        for c in self.__stub.Currencies(
-                request, metadata=self.__metadata).instruments:
+        for c in self.__api_context.instruments().Currencies(
+                request, metadata=self.__api_context.metadata()).instruments:
             self.__instruments_dict[c.figi] = parse_currency(c)
 
         self.__instruments_dict[constants.FAKE_RUB_FIGI] = Instrument(
