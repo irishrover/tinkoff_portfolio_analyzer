@@ -158,25 +158,7 @@ class Plot:
         return dcc.Graph(figure=figure)
 
     @staticmethod
-    def getTreeMapPlot(df):
-        df = df.drop(0)
-        df = df[df[df.columns[-1]] != 0]
-        wrapper = textwrap.TextWrapper(width=10)
-        df[df.columns[0]] = df[df.columns[0]].apply(
-            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
-        figure = px.treemap(
-            {"labels": df[df.columns[0]],
-             "values": df[df.columns[-1]]},
-            path=[df[df.columns[1]], df[df.columns[2]],
-                  'labels'],
-            values='values', color='values', color_continuous_scale='Plotly3')
-        figure.update_layout(
-            showlegend=False, height=800, extendtreemapcolors=True,
-            uniformtext=dict(minsize=11, mode='hide'))
-        return dcc.Graph(figure=figure)
-
-    @staticmethod
-    def getTreeMapPlotWithNeg(df):
+    def getTreeMapPlot(df, neg_values=True):
         df = df.drop(0)
         df = df[df[df.columns[-1]] != 0]
         df["values"] = df[df.columns[-1]].abs()
@@ -190,8 +172,10 @@ class Plot:
             path=[df[df.columns[1]],
                   df[df.columns[2]],
                   'labels'],
-            values='values', color="colors", color_continuous_midpoint=0.0,
-            color_continuous_scale=px.colors.diverging.PiYG)
+            values='values', color="colors", color_continuous_midpoint=0.0
+            if neg_values else None,
+            color_continuous_scale=px.colors.diverging.PiYG
+            if neg_values else 'Plotly3')
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
             uniformtext=dict(minsize=11, mode='hide'))

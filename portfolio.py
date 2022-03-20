@@ -32,8 +32,6 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', 50)
 pd.set_option('display.width', 1000)
 
-API_CONTEXT = None
-
 OPERATIONS = SqliteDict(DB_NAME, tablename='operations', autocommit=True)
 OPERATIONS_HELPER = None
 
@@ -350,7 +348,6 @@ def main():
     metadata = (('authorization', 'Bearer ' + TOKEN),)
 
     API_CONTEXT = ApiContext(channel, metadata)
-
     INSTRUMENTS_HELPER = instruments.InstrumentsHelper(API_CONTEXT, INSTRUMENTS)
     PRICES_HELPER = prices.PriceHelper(API_CONTEXT, INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
@@ -394,13 +391,13 @@ def main():
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_totals, 'total'),
-                                     Plot.getTreeMapPlot(df_totals),
+                                     Plot.getTreeMapPlot(df_totals, False),
                                      Table.get_table(df_totals), ],
                                  label="Totals"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_yields, 'yield'),
-                                     Plot.getTreeMapPlotWithNeg(df_yields),
+                                     Plot.getTreeMapPlot(df_yields),
                                      Table.get_table(df_yields)],
                                  label="Yields"),
                              dcc.Tab(
