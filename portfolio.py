@@ -391,6 +391,7 @@ def main():
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_totals, 'total'),
+                                     Plot.getSunburstPlot(df_totals),
                                      Plot.getTreeMapPlot(df_totals, False),
                                      Table.get_table(df_totals), ],
                                  label="Totals"),

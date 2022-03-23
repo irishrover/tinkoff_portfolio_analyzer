@@ -158,6 +158,25 @@ class Plot:
         return dcc.Graph(figure=figure)
 
     @staticmethod
+    def getSunburstPlot(df):
+        df = df.drop(0)
+        wrapper = textwrap.TextWrapper(width=10)
+        df[df.columns[0]] = df[df.columns[0]].apply(
+            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
+        figure = px.sunburst(
+            df, values=df[df.columns[-1]],
+            names=df[df.columns[0]],
+            path=[df[df.columns[1]], df[df.columns[0]]])
+        figure.update_layout(showlegend=False, height=800)
+        figure.update_traces(
+            hoverinfo='name+label+percent entry',
+            hovertemplate='%{label}<br>%{value:,.0f}<br>%{percentEntry:,.1%}',
+            textinfo='label+percent entry', textfont_size=20,
+            marker=dict(line=dict(color='#000000', width=2)))
+        return dcc.Graph(figure=figure)
+
+
+    @staticmethod
     def getTreeMapPlot(df, neg_values=True):
         df = df.drop(0)
         df = df[df[df.columns[-1]] != 0]
@@ -179,6 +198,7 @@ class Plot:
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
             uniformtext=dict(minsize=11, mode='hide'))
+        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
         return dcc.Graph(figure=figure)
 
     @staticmethod
@@ -205,6 +225,7 @@ class Plot:
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
             uniformtext=dict(minsize=11, mode='hide'))
+        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
         return dcc.Graph(figure=figure)
 
     @staticmethod
