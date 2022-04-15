@@ -3,11 +3,17 @@ sys.path.append('gen')
 
 from models import constants
 import datetime
-import marketdata_pb2_grpc
 import marketdata_pb2
+from dataclasses import dataclass
 
 
 class PriceHelper:
+
+    @dataclass
+    class PriceItem:
+        price_date: datetime.date
+        price: float
+        is_closed: bool
 
     DAYS_TO_FETCH = 180
 
@@ -21,15 +27,13 @@ class PriceHelper:
         self.__first_trade_dates = first_trade_dates
         self.__first_trade_dates_dict = constants.db2dict(
             self.__first_trade_dates)
-        # Don't cache the last 2 dates as their close prices could have
-        # change since the last fetch.
+        # Remove unclosed prices to force thier updates.
         for figi, v in self.__prices_dict.items():
             data = v
-            for _ in range(2):
-                if any(data.keys()):
-                    data.pop(max(data.keys()), None)
-                else:
-                    break
+            unclosed_prices = list(
+                k for(k, v) in data.items() if not v.is_closed)
+            for p in unclosed_prices:
+                del data[p]
             self.__prices_dict[figi] = data
 
     @staticmethod
@@ -43,7 +47,7 @@ class PriceHelper:
         constants.dict2db(self.__first_trade_dates_dict,
                           self.__first_trade_dates)
 
-    def get_candles(self, figi, min_date, max_date):
+    def __get_candles(self, figi, min_date, max_date):
         request = marketdata_pb2.GetCandlesRequest(**{
             "figi": figi,
             "from": constants.timestamp_from_datetime(min_date),
@@ -57,7 +61,9 @@ class PriceHelper:
         for c in candles.candles:
             d = constants.seconds_to_time(c.time).date()
             result.append(
-                (d, rate * constants.sum_units_nano(c.close)))
+                PriceHelper.PriceItem(
+                    d, rate * constants.sum_units_nano(c.close),
+                    c.is_complete))
 
         return result
 
@@ -67,7 +73,7 @@ class PriceHelper:
             prices = {}
         else:
             if (val := self.__prices_dict[figi].get(d, None)) is not None:
-                return val
+                return val.price
             prices = self.__prices_dict[figi]
 
         time_delta = datetime.timedelta(days=self.DAYS_TO_FETCH)
@@ -87,8 +93,8 @@ class PriceHelper:
             max_date = min(max_date, actual_max_date)
         max_date = PriceHelper.combine_dates(max_date, datetime.time.max)
 
-        for c in self.get_candles(figi, min_date, max_date):
-            prices[constants.prepare_date(c[0])] = c[1]
+        for c in self.__get_candles(figi, min_date, max_date):
+            prices[constants.prepare_date(c.price_date)] = c
 
         # Propagate the missing values from prev values.
         last_value = None
@@ -102,7 +108,8 @@ class PriceHelper:
             else:
                 last_value = prices[prepared_dd]
         self.__prices_dict[figi] = prices
-        return self.__prices_dict[figi].get(d, 0.0)
+        value = self.__prices_dict[figi].get(d, None)
+        return value.price if value else 0.0
 
     def get_price(self, figi, d):
         if figi == constants.FAKE_RUB_FIGI:
@@ -126,8 +133,8 @@ class PriceHelper:
         max_date = PriceHelper.combine_dates(
             constants.prepare_date(today),
             datetime.time.max)
-        candles = self.get_candles(figi, min_date, max_date)
+        candles = self.__get_candles(figi, min_date, max_date)
         assert any(candles)
         self.__first_trade_dates_dict[figi] = min(
-            constants.prepare_date(c[0]) for c in candles)
+            constants.prepare_date(c.price_date) for c in candles)
         return self.__first_trade_dates_dict[figi]
