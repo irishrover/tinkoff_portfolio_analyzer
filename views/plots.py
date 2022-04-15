@@ -204,7 +204,7 @@ class Plot:
     @staticmethod
     def getTreeMapPlotWithNegForStats(df):
         data_column = 4
-        mask = df[df.columns[0]].str.contains('\[', na=False)
+        mask = df[df.columns[0]].str.contains(r'\[', na=False)
         df = df[~mask]
         df = df[df[df.columns[data_column]] != 0]
         df= df[df[df.columns[data_column]] != np.inf]
@@ -240,11 +240,11 @@ class Plot:
         days_diffs = []
         for i in range(len(df.attrs['date_columns']) - 1):
             days_diffs.append(
-                (df.attrs['date_columns'][i+1]-df.attrs['date_columns'][i]).days)
+                (df.attrs['date_columns'][i + 1] - df.attrs['date_columns'][i]).days)
         days_diffs.append(1)
 
         figure = go.Figure()
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():
             plot_row = row[constants.SUMMARY_COLUMNS_SIZE:]
             tmp_plot_row = []
             assert len(days_diffs) == plot_row.size
@@ -252,9 +252,9 @@ class Plot:
                 tmp_plot_row.extend([r] * days_diffs[index])
             plot_row = pd.Series(tmp_plot_row)
             plot_row = plot_row[plot_row != 0]
-            Q1 = plot_row.quantile(0.15)
-            Q2 = plot_row.quantile(0.85)
-            plot_row = plot_row[(plot_row >= Q1) & (plot_row <= Q2)]
+            q1 = plot_row.quantile(0.15)
+            q2 = plot_row.quantile(0.85)
+            plot_row = plot_row[(plot_row >= q1) & (plot_row <= q2)]
 
             figure.add_trace(
                 go.Box(

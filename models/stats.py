@@ -7,8 +7,6 @@ from bisect import bisect_left
 from collections import OrderedDict, defaultdict
 
 from models import constants as cnst
-from models import currency, instruments, operations, positions
-from models.base_classes import Money, Currency
 from models.operations import Operation
 
 

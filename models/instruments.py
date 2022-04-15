@@ -3,14 +3,10 @@ sys.path.append('gen')
 
 from dataclasses import dataclass
 from datetime import datetime
-from google.protobuf.timestamp_pb2 import Timestamp
 from models import constants
 from models.base_classes import InstrumentType, Currency, Money
-from datetime import datetime
 import instruments_pb2
-import instruments_pb2_grpc
 import logging
-import pytz
 
 
 @dataclass
@@ -21,16 +17,15 @@ class Instrument:
     ticker: str
     name: str
     nominal: Money
-    first_trade_date: datetime.date = datetime.min,
-    last_trade_date: datetime.date = datetime.max,
+    first_trade_date: datetime.date = datetime.min
+    last_trade_date: datetime.date = datetime.max
     country: str = ""
     sector: str = ""
 
     def nominal_rate(self):
         if self.instrument_type == InstrumentType.BOND:
             return 0.01 * self.nominal.amount
-        else:
-            return 1.0
+        return 1.0
 
 class InstrumentsHelper:
 
@@ -45,7 +40,7 @@ class InstrumentsHelper:
 
     def __update(self):
 
-        def ToCurrency(v):
+        def to_currency(v):
             return Currency(v.upper())
 
         def parse_bond(v) -> Instrument:
@@ -55,7 +50,7 @@ class InstrumentsHelper:
                               currency=v.currency, figi=v.figi, ticker=v.ticker,
                               name=v.name,
                               nominal=Money(
-                                  currency=ToCurrency(v.nominal.currency),
+                                  currency=to_currency(v.nominal.currency),
                                   amount=constants.sum_units_nano(v.nominal)),
                               first_trade_date=d1,
                               last_trade_date=d2,
@@ -66,14 +61,14 @@ class InstrumentsHelper:
                               currency=v.currency, figi=v.figi, ticker=v.ticker,
                               name=v.name,
                               nominal=Money(
-                                  currency=ToCurrency(v.nominal.currency),
+                                  currency=to_currency(v.nominal.currency),
                                   amount=constants.sum_units_nano(v.nominal)),
                               first_trade_date=datetime.min,
                               last_trade_date=datetime.max,
                               country=v.country_of_risk)
 
         def parse_etf(v) -> Instrument:
-            d1 = parse_date(v.released_date)
+            d1 = constants.seconds_to_time(v.released_date)
             d2 = datetime.max
             return Instrument(instrument_type=InstrumentType.ETF,
                               currency=v.currency, figi=v.figi, ticker=v.ticker,
@@ -84,7 +79,7 @@ class InstrumentsHelper:
                               country=v.country_of_risk, sector=v.sector)
 
         def parse_share(v) -> Instrument:
-            d1 = parse_date(v.ipo_date)
+            d1 = constants.seconds_to_time(v.ipo_date)
             d2 = datetime.max
             return Instrument(instrument_type=InstrumentType.SHARE,
                               currency=v.currency, figi=v.figi, ticker=v.ticker,
@@ -138,5 +133,3 @@ class InstrumentsHelper:
         self.__update()
         assert figi in self.__instruments_dict, figi
         return self.__instruments_dict[figi]
-
-

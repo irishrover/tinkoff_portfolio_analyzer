@@ -1,10 +1,10 @@
 import sys
 sys.path.append('gen')
 
+from dataclasses import dataclass
 from models import constants
 import datetime
 import marketdata_pb2
-from dataclasses import dataclass
 
 
 class PriceHelper:

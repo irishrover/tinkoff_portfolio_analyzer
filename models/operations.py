@@ -1,20 +1,19 @@
+import datetime
+import logging
 import sys
+import google.protobuf.timestamp_pb2 as ggl
 sys.path.append('gen')
-
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from gen import operations_pb2
-from gen import operations_pb2_grpc
-from google.protobuf.timestamp_pb2 import Timestamp
+from pyxirr import xirr  # pylint: disable=no-name-in-module
 from models import constants
 from models.base_classes import Currency, Money
-from pyxirr import xirr  # pylint: disable=no-name-in-module
-import datetime
-import logging
+
 
 def timestamp_from_datetime(dt):
-    ts = Timestamp()
+    ts = ggl.Timestamp()
     ts.FromDatetime(dt)
     return ts
 
@@ -71,7 +70,8 @@ class Operation(Enum):
     DIV_EXT = 43
     TAX_CORRECTION_COUPON = 44
 
-    def visible(self):
+    @staticmethod
+    def visible():
         return True
 
 

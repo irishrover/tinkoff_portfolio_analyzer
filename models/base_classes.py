@@ -1,8 +1,9 @@
 import sys
+from dataclasses import dataclass
+from enum import Enum
+
 sys.path.append('gen')
 
-from enum import Enum
-from dataclasses import dataclass
 import instruments_pb2_grpc
 import marketdata_pb2_grpc
 import operations_pb2_grpc
@@ -43,6 +44,7 @@ class InstrumentType(Enum):
 
 
 class Currency(Enum):
+    BYN = "BYN"
     CAD = "CAD"
     CHF = "CHF"
     CNY = "CNY"
@@ -51,13 +53,15 @@ class Currency(Enum):
     HKD = "HKD"
     ILS = "ILS"
     JPY = "JPY"
+    KZT = "KZT"
     RUB = "RUB"
     TRY = "TRY"
     USD = "USD"
+    XAG = "XAG"
+    XAU = "XAU"
+
 
 @dataclass
 class Money:
     currency: Currency = Currency.RUB
     amount: float = 0.0
-
-

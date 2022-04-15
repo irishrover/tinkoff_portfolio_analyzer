@@ -1,8 +1,9 @@
 import sys
+
 sys.path.append('gen')
 
 from models import constants
-from models.base_classes import InstrumentType, Currency, Money
+from models.base_classes import Currency
 
 
 class CurrencyHelper:

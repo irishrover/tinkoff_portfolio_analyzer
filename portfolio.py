@@ -15,7 +15,7 @@ import pandas as pd
 
 from gen import users_pb2
 from models import constants as cnst
-from models import currency, instruments, operations, positions
+from models import currency, instruments, operations
 from models import positions as pstns
 from models import prices, stats
 from models.base_classes import ApiContext, Currency
@@ -47,11 +47,11 @@ INSTRUMENTS_HELPER = None
 
 
 def get_portoflio_parsed(api_context, account_id):
-    return pstns.V2.GetPositions(api_context, account_id)
+    return pstns.V2.get_positions(api_context, account_id)
 
 
 def update_portfolios(all_accounts, api_context):
-    accounts = list(pstns.V2.GetAccounts(api_context))
+    accounts = list(pstns.V2.get_accounts(api_context))
     for account in accounts:
         logging.info(
             "update_portfolios '%s' [%s]", account.name, account.id)
@@ -66,9 +66,9 @@ def update_portfolios(all_accounts, api_context):
         account_positions = all_accounts[account.id]
 
         fetch_date = cnst.NOW.date()
-        positions = pstns.V2ToV2SinglePortfolio(
+        positions = pstns.api_to_portfolio(
             get_portoflio_parsed(api_context, account.id).positions)
-        positions.append(pstns.V2.GetRubPosition(api_context, account.id))
+        positions.append(pstns.V2.get_rub_position(api_context, account.id))
         account_positions.positions[fetch_date] = positions
         all_accounts[account.id] = account_positions
 
@@ -91,7 +91,7 @@ def pretty_print_date_diff(day, diff):
     return ' '.join(result)
 
 
-def get_full_name(item: positions.Position):
+def get_full_name(item: pstns.Position):
     # https://www.tinkoff.ru/invest/stocks/{item.ticker}
     instrument_data = INSTRUMENTS_HELPER.get_by_figi(item.figi)
     if not item.average_price:
@@ -347,17 +347,17 @@ def main():
         'invest-public-api.tinkoff.ru:443', grpc.ssl_channel_credentials())
     metadata = (('authorization', 'Bearer ' + TOKEN),)
 
-    API_CONTEXT = ApiContext(channel, metadata)
-    INSTRUMENTS_HELPER = instruments.InstrumentsHelper(API_CONTEXT, INSTRUMENTS)
-    PRICES_HELPER = prices.PriceHelper(API_CONTEXT, INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES)
+    api_context = ApiContext(channel, metadata)
+    INSTRUMENTS_HELPER = instruments.InstrumentsHelper(api_context, INSTRUMENTS)
+    PRICES_HELPER = prices.PriceHelper(api_context, INSTRUMENTS_HELPER, PRICES, FIRST_DATE_TRADES)
     CURRENCY_HELPER = currency.CurrencyHelper(PRICES_HELPER)
-    OPERATIONS_HELPER = operations.OperationsHelper(API_CONTEXT, CURRENCY_HELPER, OPERATIONS)
+    OPERATIONS_HELPER = operations.OperationsHelper(api_context, CURRENCY_HELPER, OPERATIONS)
 
 
     with SqliteDict(DB_NAME,
                     tablename='accounts',
                     autocommit=True) as accounts:
-        update_portfolios(accounts, API_CONTEXT)
+        update_portfolios(accounts, api_context)
         accounts.commit()
 
         tabs = []

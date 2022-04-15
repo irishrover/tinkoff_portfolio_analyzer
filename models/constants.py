@@ -105,4 +105,3 @@ def get_item_value(item, date, currency_helper):
 def get_item_orig_value(item):
     return item.expected_yield.amount + \
         item.quantity * item.average_price.amount
-
