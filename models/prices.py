@@ -4,6 +4,7 @@ sys.path.append('gen')
 from dataclasses import dataclass
 from models import constants
 import datetime
+import logging
 import marketdata_pb2
 
 
@@ -18,7 +19,7 @@ class PriceHelper:
     DAYS_TO_FETCH = 180
 
     def __init__(
-        self, api_context, instruments_helper, prices, first_trade_dates):
+            self, api_context, instruments_helper, prices, first_trade_dates):
         self.__api_context = api_context
         self.__prices = prices
         self.__prices_dict = constants.db2dict(self.__prices)
@@ -27,14 +28,20 @@ class PriceHelper:
         self.__first_trade_dates = first_trade_dates
         self.__first_trade_dates_dict = constants.db2dict(
             self.__first_trade_dates)
-        # Remove unclosed prices to force thier updates.
+        # Remove unclosed prices to force their updates.
+        unclosed_count = 0
         for figi, v in self.__prices_dict.items():
             data = v
             unclosed_prices = list(
                 k for(k, v) in data.items() if not v.is_closed)
-            for p in unclosed_prices:
-                del data[p]
+            if unclosed_prices:
+                unclosed_count += len(unclosed_prices)
+                for p in unclosed_prices:
+                    del data[p]
             self.__prices_dict[figi] = data
+        if unclosed_count > 0:
+            logging.info("clean %d unclosed prices", unclosed_count)
+
 
     @staticmethod
     def combine_dates(date, time):
