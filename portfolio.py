@@ -132,7 +132,7 @@ def get_stats_df(account, portfolio, key_dates):
         df.attrs['allowed_items'] = []
         df.attrs['disallowed_columns'] = []
         df.columns = [
-            'Name', 'Ticker',
+            'Name', 'Ticker', "Sector",
             'Old', 'New', 'Diff', 'Diff, %',
             'Old@', 'New@', 'Diff@', 'Diff@, %',
             'Old@@', 'New@@', 'Diff@@', 'Diff@@, %',
@@ -336,8 +336,8 @@ def main():
         log_level = args.log.upper()
         logging.basicConfig(
             level=log_level,
-            format='%(asctime)s - [%(levelname)s]' +
-            ' - %(filename)s:%(lineno)d:%(funcName)s - %(message)s')
+            format='%(relativeCreated)10d - [%(levelname)s]' +
+            ' - %(filename)15s:%(lineno)3d:%(funcName)30s - %(message)s')
         start_server = not args.no_server
 
     parse_cmd_line()

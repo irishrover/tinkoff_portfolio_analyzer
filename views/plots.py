@@ -195,22 +195,60 @@ class Plot:
             if neg_values else None,
             color_continuous_scale=px.colors.diverging.PiYG
             if neg_values else 'Plotly3')
+        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
             uniformtext=dict(minsize=11, mode='hide'))
-        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
         return dcc.Graph(figure=figure)
+
+
+    @staticmethod
+    def getTreeMapPlotWithNegForStats2(df):
+        df = px.data.tips()
+
+        # We have a list for every day
+        # In your case will be gropuby('RuleName')
+        # here for every element d
+        # d[0] is the name(key) and d[1] is the dataframe
+        dfs = list(df.groupby("day"))
+
+        first_title = dfs[0][0]
+        traces = []
+        buttons = []
+        for i,d in enumerate(dfs):
+            visible = [False] * len(dfs)
+            visible[i] = True
+            name = d[0]
+            p = px.treemap(d[1], path=['day', 'time', 'sex'], values='total_bill').update_traces(visible=True if i==0 else False)
+            p.data[0].parents = ['sex']
+            traces.append(p.data[0])
+            buttons.append(dict(label=name,
+                                method="update",
+                                args=[{"parents":['sex' if i == 0 else 'day']},
+                                    {"title":f"{name}"}]))
+
+        updatemenus = [{'active':0, "buttons":buttons}]
+        fig = go.Figure(data=traces,
+                        layout=dict(updatemenus=updatemenus))
+        fig.update_layout(title=first_title, title_x=0.5)
+        return dcc.Graph(figure=fig)
+
 
     @staticmethod
     def getTreeMapPlotWithNegForStats(df):
-        data_column = 4
+        def values_sign_func(x):
+            if x >= 0.0:
+                return 'Positive'
+            return 'Negative'
+
+        data_column = 5
         mask = df[df.columns[0]].str.contains(r'\[', na=False)
         df = df[~mask]
         df = df[df[df.columns[data_column]] != 0]
-        df= df[df[df.columns[data_column]] != np.inf]
+        df = df[df[df.columns[data_column]] != np.inf]
         df = df[df[df.columns[1]] != 'RUB']
         df = df[df[df.columns[1]] != 'USD000UTSTOM']
-        df["values_sign"] = df[df.columns[data_column]] >= 0.0
+        df['values_sign'] = df[df.columns[data_column]].apply(values_sign_func)
         df["values"] = df[df.columns[data_column]].abs()
         wrapper = textwrap.TextWrapper(width=10)
         df[df.columns[0]] = df[df.columns[0]].apply(
@@ -219,13 +257,30 @@ class Plot:
             {"labels": df[df.columns[0]],
              "values": df[df.columns[-1]],
              "colors": df[df.columns[data_column]]},
-            path=[df['values_sign'], 'labels'],
+            path=[px.Constant("All"), df['values_sign'], df[df.columns[2]], 'labels'],
             values='values', color="colors", color_continuous_midpoint=0.0,
             color_continuous_scale=px.colors.diverging.PiYG)
+        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
-            uniformtext=dict(minsize=11, mode='hide'))
-        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
+            uniformtext=dict(minsize=12, mode='hide'),
+            updatemenus=[
+                dict(
+                    buttons=list([
+                        dict(
+                            args=["path", [df['values_sign'], 'labels']],
+                            label="Pos/Neg",
+                            method="restyle",
+                        ),
+                        dict(
+                            args=["path", 'labels'],
+                            label="Labels",
+                            method="restyle",
+                        )
+                    ]),
+                    direction="down",
+                ),
+            ])
         return dcc.Graph(figure=figure)
 
     @staticmethod

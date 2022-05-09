@@ -114,13 +114,13 @@ class Table:
         df['id'] = df.index
 
         def __index2str(index, col):
-            if index < 2:
+            if index < 3:
                 return [date_str, "", col]
-            if index < 6:
+            if index < 7:
                 return [date_str, 'Value', col.replace('@', '')]
-            if index < 10:
+            if index < 11:
                 return [date_str, 'Yield', col.replace('@', '')]
-            if index < 14:
+            if index < 15:
                 return [date_str, 'Balance', col.replace('@', '')]
 
             return [date_str, 'XIRR', col.replace('@', '')]
@@ -130,7 +130,7 @@ class Table:
             columns=[{'id': str(c),
                       'name': __index2str(index, str(c)),
                       "type":
-                      ("text" if c in ["Name", "Ticker"] else "numeric"),
+                      ("text" if c in ["Name", "Ticker", "Sector"] else "numeric"),
                       "format":
                       Format(
                           group=Group.yes, precision=0, scheme=Scheme.fixed,
