@@ -87,7 +87,7 @@ class PortfolioComparer:
 
     @staticmethod
     def __get_total_row(title, d1, d2):
-        return (title, "", "", *(PortfolioComparer.__get_row(d1, d2) +
+        return (title, "", "", "", *(PortfolioComparer.__get_row(d1, d2) +
                              PortfolioComparer.__get_row(0, 0) * 3))
 
     def __get_total_stat_info(self, account, d1, p1, d2, p2, result):
@@ -107,7 +107,7 @@ class PortfolioComparer:
         xirr_2 = self.__operations_helper.get_total_xirr(
             account, {d2: total_v2})[d2]
         result.append(
-            ("[Total]", "", "", *
+            ("[Total]", "", "", "", *
              (PortfolioComparer.__get_row(total_v1, total_v2) +
               PortfolioComparer.__get_row(0, 0) * 2 +
               PortfolioComparer.__get_row(xirr_1, xirr_2))))
@@ -126,20 +126,20 @@ class PortfolioComparer:
         payouts = all_operations[Operation.OUTPUT]
         pay_in_out_1 = payins[d1] + payouts[d1]
         pay_in_out_2 = payins[d2] + payouts[d2]
-        result.append(("[Total Yield]", "", "", *
+        result.append(("[Total Yield]", "", "", "", *
                        (PortfolioComparer.__get_row(
                            total_v1 - pay_in_out_1,
                            total_v2 - pay_in_out_2) +
                         PortfolioComparer.__get_row(0, 0) * 3)))
         result.append(
-            ("[Total Yield, %]", "", "", *
+            ("[Total Yield, %]", "", "", "", *
              (PortfolioComparer.__get_row(
                  100.0 * (total_v1 - pay_in_out_1) / pay_in_out_1,
                  100.0 * (total_v2 - pay_in_out_2) / pay_in_out_2) +
               PortfolioComparer.__get_row(0, 0) * 3)))
 
         result.append(
-            ("[Yield]", "", "", *
+            ("[Yield]", "", "", "", *
              (PortfolioComparer.__get_row(total_y1, total_y2) +
               PortfolioComparer.__get_row(0, 0) * 3)))
 
@@ -179,11 +179,13 @@ class PortfolioComparer:
             xirr1 = defaultdict(float)
             xirr2 = defaultdict(float)
             ticker = None
+            currency = None
             sector = None
             if in_items1:
                 item1 = items1[name]
                 instrument = self.__instruments_helper.get_by_figi(item1.figi)
                 ticker = instrument.ticker
+                currency = instrument.currency.value
                 sector = (instrument.sector
                           if instrument.sector else DEFAULT_SECTOR).capitalize()
                 v1 = cnst.get_item_value(item1, d1, self.__currency_helper)
@@ -196,6 +198,7 @@ class PortfolioComparer:
                 item2 = items2[name]
                 instrument = self.__instruments_helper.get_by_figi(item2.figi)
                 ticker = instrument.ticker
+                currency = instrument.currency.value
                 sector = (instrument.sector
                           if instrument.sector else DEFAULT_SECTOR).capitalize()
                 v2 = cnst.get_item_value(item2, d2, self.__currency_helper)
@@ -205,7 +208,7 @@ class PortfolioComparer:
                     account, item2.figi,
                     {d2: cnst.get_item_orig_value(item2)})
             if v1 != v2:
-                result.append((name, ticker, sector, *
+                result.append((name, ticker, currency, sector, *
                                (PortfolioComparer.__get_row(v1, v2) +
                                 PortfolioComparer.__get_row(y1, y2) +
                                 PortfolioComparer.__get_row(b1, b2) +
