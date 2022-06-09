@@ -12,6 +12,7 @@ from models.base_classes import InstrumentType, Money, Currency
 from typing import List, DefaultDict
 import collections
 import datetime
+import logging
 
 
 class AccountType(Enum):
@@ -41,7 +42,7 @@ class Account:
 
 def api_to_portfolio(positions) -> List[Position]:
 
-    def money_v2_v2(v, currency=None):
+    def to_money(v, currency=None):
         return Money(
             currency=Currency(
                 currency.upper() if currency else v.currency.upper()),
@@ -53,21 +54,26 @@ def api_to_portfolio(positions) -> List[Position]:
             t = 'Stock'
         return t
 
-    result = []
+    result = {}
     for p in positions:
-        quantity = constants.sum_units_nano(p.quantity)
-        curr_price = money_v2_v2(p.current_price)
-        avg_price = money_v2_v2(p.average_position_price)
-        yield_price = Money(avg_price.currency,
-                            (curr_price.amount - avg_price.amount) * quantity)
-        pos = Position(
-            InstrumentType(prepare_type(p.instrument_type)),
-            figi=p.figi, quantity=quantity, average_price=avg_price,
-            expected_yield=yield_price, nkd=money_v2_v2(p.current_nkd)
-            if p.current_nkd.currency else Money())
-        result.append(pos)
+        if p.figi in result:
+            quantity = constants.sum_units_nano(p.quantity)
+            result[p.figi].quantity += quantity
+            logging.info('api_to_portfolio: %d blocked shares handled %s', quantity, p.figi)
+        else:
+            quantity = constants.sum_units_nano(p.quantity)
+            curr_price = to_money(p.current_price)
+            avg_price = to_money(p.average_position_price)
+            yield_price = Money(avg_price.currency,
+                                (curr_price.amount - avg_price.amount) * quantity)
+            pos = Position(
+                InstrumentType(prepare_type(p.instrument_type)),
+                figi=p.figi, quantity=quantity, average_price=avg_price,
+                expected_yield=yield_price, nkd=to_money(p.current_nkd)
+                if p.current_nkd.currency else Money())
+            result[p.figi] = pos
 
-    return result
+    return list(result.values())
 
 class V2:
 
