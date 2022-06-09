@@ -46,48 +46,46 @@ class InstrumentsHelper:
         def parse_bond(v) -> Instrument:
             d1 = constants.seconds_to_time(v.placement_date)
             d2 = constants.seconds_to_time(v.maturity_date)
-            return Instrument(instrument_type=InstrumentType.BOND,
-                              currency=v.currency, figi=v.figi, ticker=v.ticker,
-                              name=v.name,
-                              nominal=Money(
-                                  currency=to_currency(v.nominal.currency),
-                                  amount=constants.sum_units_nano(v.nominal)),
-                              first_trade_date=d1,
-                              last_trade_date=d2,
-                              country=v.country_of_risk, sector=v.sector)
+            return Instrument(
+                instrument_type=InstrumentType.BOND,
+                currency=to_currency(v.currency),
+                figi=v.figi, ticker=v.ticker, name=v.name,
+                nominal=Money(
+                    currency=to_currency(v.nominal.currency),
+                    amount=constants.sum_units_nano(v.nominal)),
+                first_trade_date=d1, last_trade_date=d2,
+                country=v.country_of_risk, sector=v.sector)
 
         def parse_currency(v) -> Instrument:
-            return Instrument(instrument_type=InstrumentType.CURRENCY,
-                              currency=v.currency, figi=v.figi, ticker=v.ticker,
-                              name=v.name,
-                              nominal=Money(
-                                  currency=to_currency(v.nominal.currency),
-                                  amount=constants.sum_units_nano(v.nominal)),
-                              first_trade_date=datetime.min,
-                              last_trade_date=datetime.max,
-                              country=v.country_of_risk)
+            return Instrument(
+                instrument_type=InstrumentType.CURRENCY,
+                currency=to_currency(v.currency),
+                figi=v.figi, ticker=v.ticker, name=v.name,
+                nominal=Money(
+                    currency=to_currency(v.nominal.currency),
+                    amount=constants.sum_units_nano(v.nominal)),
+                first_trade_date=datetime.min, last_trade_date=datetime.max,
+                country=v.country_of_risk)
 
         def parse_etf(v) -> Instrument:
             d1 = constants.seconds_to_time(v.released_date)
             d2 = datetime.max
-            return Instrument(instrument_type=InstrumentType.ETF,
-                              currency=v.currency, figi=v.figi, ticker=v.ticker,
-                              name=v.name,
-                              nominal=None,
-                              first_trade_date=d1,
-                              last_trade_date=d2,
-                              country=v.country_of_risk, sector=v.sector)
+            return Instrument(
+                instrument_type=InstrumentType.ETF,
+                currency=to_currency(v.currency),
+                figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
+                first_trade_date=d1, last_trade_date=d2,
+                country=v.country_of_risk, sector=v.sector)
 
         def parse_share(v) -> Instrument:
             d1 = constants.seconds_to_time(v.ipo_date)
             d2 = datetime.max
-            return Instrument(instrument_type=InstrumentType.SHARE,
-                              currency=v.currency, figi=v.figi, ticker=v.ticker,
-                              name=v.name,
-                              nominal=None,
-                              first_trade_date=d1,
-                              last_trade_date=d2,
-                              country=v.country_of_risk, sector=v.sector)
+            return Instrument(
+                instrument_type=InstrumentType.SHARE,
+                currency=to_currency(v.currency),
+                figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
+                first_trade_date=d1, last_trade_date=d2,
+                country=v.country_of_risk, sector=v.sector)
 
         logging.info("InstrumentsHelper.update")
 
