@@ -59,6 +59,13 @@ def api_to_portfolio(positions) -> List[Position]:
         if p.figi in result:
             quantity = constants.sum_units_nano(p.quantity)
             result[p.figi].quantity += quantity
+
+            quantity = result[p.figi].quantity
+            curr_price = to_money(p.current_price)
+            avg_price = result[p.figi].average_price
+            yield_price = Money(avg_price.currency,
+                                (curr_price.amount - avg_price.amount) * quantity)
+            result[p.figi].expected_yield = yield_price
             logging.info('api_to_portfolio: %d blocked shares handled %s', quantity, p.figi)
         else:
             quantity = constants.sum_units_nano(p.quantity)
