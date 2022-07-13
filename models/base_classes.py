@@ -44,6 +44,8 @@ class InstrumentType(Enum):
 
 
 class Currency(Enum):
+    AED = "AED"
+    AMD = "AMD"
     BYN = "BYN"
     CAD = "CAD"
     CHF = "CHF"
@@ -59,8 +61,10 @@ class Currency(Enum):
     SEK = "SEK"
     TRY = "TRY"
     USD = "USD"
+    UZS = "UZS"
     XAG = "XAG"
     XAU = "XAU"
+    ZAR = "ZAR"
 
 
 @dataclass

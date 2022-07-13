@@ -61,6 +61,7 @@ class InstrumentsHelper:
                 instrument_type=InstrumentType.CURRENCY,
                 currency=to_currency(v.currency),
                 figi=v.figi, ticker=v.ticker, name=v.name,
+                sector='Currency',
                 nominal=Money(
                     currency=to_currency(v.nominal.currency),
                     amount=constants.sum_units_nano(v.nominal)),
@@ -111,7 +112,7 @@ class InstrumentsHelper:
         self.__instruments_dict[constants.FAKE_RUB_FIGI] = Instrument(
             instrument_type=InstrumentType.CURRENCY, currency=Currency.RUB,
             figi=constants.FAKE_RUB_FIGI, ticker='RUB', name='Российский рубль',
-            nominal=Money(),
+            nominal=Money(), sector='Currency',
             first_trade_date=datetime.min,
             last_trade_date=datetime.max)
 

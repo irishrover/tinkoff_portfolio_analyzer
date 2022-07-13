@@ -46,10 +46,6 @@ INSTRUMENTS = SqliteDict(DB_NAME, tablename='instruments', autocommit=True)
 INSTRUMENTS_HELPER = None
 
 
-def get_portoflio_parsed(api_context, account_id):
-    return pstns.V2.get_positions(api_context, account_id)
-
-
 def update_portfolios(all_accounts, api_context):
     accounts = list(pstns.V2.get_accounts(api_context))
     for account in accounts:
@@ -64,10 +60,9 @@ def update_portfolios(all_accounts, api_context):
                                                      users_pb2.ACCOUNT_TYPE_TINKOFF_IIS)
 
         account_positions = all_accounts[account.id]
-
         fetch_date = cnst.NOW.date()
         positions = pstns.api_to_portfolio(
-            get_portoflio_parsed(api_context, account.id).positions)
+            pstns.V2.get_positions(api_context, account.id).positions)
         positions.append(pstns.V2.get_rub_position(api_context, account.id))
         account_positions.positions[fetch_date] = positions
         all_accounts[account.id] = account_positions
@@ -132,7 +127,7 @@ def get_stats_df(account, portfolio, key_dates):
         df.attrs['allowed_items'] = []
         df.attrs['disallowed_columns'] = []
         df.columns = [
-            'Name', 'Ticker', "Sector",
+            'Name', 'Ticker', "Currency", "Sector",
             'Old', 'New', 'Diff', 'Diff, %',
             'Old@', 'New@', 'Diff@', 'Diff@, %',
             'Old@@', 'New@@', 'Diff@@', 'Diff@@, %',

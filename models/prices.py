@@ -141,7 +141,7 @@ class PriceHelper:
             constants.prepare_date(today),
             datetime.time.max)
         candles = self.__get_candles(figi, min_date, max_date)
-        assert any(candles)
+        assert any(candles), figi
         self.__first_trade_dates_dict[figi] = min(
             constants.prepare_date(c.price_date) for c in candles)
         return self.__first_trade_dates_dict[figi]
