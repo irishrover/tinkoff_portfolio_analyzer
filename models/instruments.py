@@ -54,14 +54,15 @@ class InstrumentsHelper:
                     currency=to_currency(v.nominal.currency),
                     amount=constants.sum_units_nano(v.nominal)),
                 first_trade_date=d1, last_trade_date=d2,
-                country=v.country_of_risk, sector=v.sector)
+                country=v.country_of_risk, sector=v.sector
+                if len(v.sector) else constants.DEFAULT_SECTOR)
 
         def parse_currency(v) -> Instrument:
             return Instrument(
                 instrument_type=InstrumentType.CURRENCY,
-                currency=to_currency(v.currency),
-                figi=v.figi, ticker=v.ticker, name=v.name,
-                sector='Currency',
+                currency=to_currency(v.nominal.currency),
+                figi=v.figi, ticker=v.ticker,
+                name=v.name, sector='Currency',
                 nominal=Money(
                     currency=to_currency(v.nominal.currency),
                     amount=constants.sum_units_nano(v.nominal)),
@@ -76,7 +77,8 @@ class InstrumentsHelper:
                 currency=to_currency(v.currency),
                 figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
                 first_trade_date=d1, last_trade_date=d2,
-                country=v.country_of_risk, sector=v.sector)
+                country=v.country_of_risk, sector=v.sector
+                if len(v.sector) else constants.DEFAULT_SECTOR)
 
         def parse_share(v) -> Instrument:
             d1 = constants.seconds_to_time(v.ipo_date)
@@ -86,7 +88,8 @@ class InstrumentsHelper:
                 currency=to_currency(v.currency),
                 figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
                 first_trade_date=d1, last_trade_date=d2,
-                country=v.country_of_risk, sector=v.sector)
+                country=v.country_of_risk, sector=v.sector
+                if len(v.sector) else constants.DEFAULT_SECTOR)
 
         logging.info("InstrumentsHelper.update")
 
@@ -121,6 +124,7 @@ class InstrumentsHelper:
         # Dadya Donner workaround
         if figi == 'BBG00L31GQQ4':
             return Instrument(
+                sector=constants.DEFAULT_SECTOR,
                 instrument_type=InstrumentType.BOND,
                 currency=Currency.RUB,
                 nominal=Money(Currency.RUB, 50000.0),

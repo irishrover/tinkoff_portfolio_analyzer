@@ -37,7 +37,7 @@ class Table:
     def __highlight_max_row(df):
         result = []
         df_numeric_columns = df.drop(
-            ['id', 'Name', 'Type', 'Currency'] +
+            ['id', 'Name', 'Type', 'Currency', 'Sector'] +
             df.attrs['disallowed_columns'],
             axis=1)
 
@@ -75,7 +75,7 @@ class Table:
 
         return dash_table.DataTable(
             columns=[{'id': str(c), 'name': str(c),
-                      "type": ("text" if c in ["Name", "Type", "Currency"]
+                      "type": ("text" if c in ["Name", "Type", "Currency", "Sector"]
                                else "numeric"),
                       "format": Format(group=Group.yes, precision=0,
                                        scheme=Scheme.fixed, symbol=Symbol.no)}
