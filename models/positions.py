@@ -107,7 +107,8 @@ class V2:
                     average_price=Money(Currency.RUB, 1.0),
                     expected_yield=Money(Currency.RUB, 0.0),
                     nkd=Money(Currency.RUB, 0.0))
-        assert False
+        return None
+
 
     @staticmethod
     def get_positions(api_context, account_id):

@@ -10,7 +10,6 @@ from models import constants as cnst
 from models.operations import Operation
 
 
-DEFAULT_SECTOR = 'Other'
 DAY_RANGES = OrderedDict(reversed({
     1: 2,
     7: 2,
@@ -186,8 +185,9 @@ class PortfolioComparer:
                 instrument = self.__instruments_helper.get_by_figi(item1.figi)
                 ticker = instrument.ticker
                 currency = instrument.currency.value
-                sector = (instrument.sector
-                          if instrument.sector else DEFAULT_SECTOR).capitalize()
+                sector = (
+                    instrument.sector
+                    if instrument.sector else cnst.DEFAULT_SECTOR).capitalize()
                 v1 = cnst.get_item_value(item1, d1, self.__currency_helper)
                 y1 = cnst.get_item_yield(item1, d1, self.__currency_helper)
                 b1 = item1.quantity
@@ -199,8 +199,9 @@ class PortfolioComparer:
                 instrument = self.__instruments_helper.get_by_figi(item2.figi)
                 ticker = instrument.ticker
                 currency = instrument.currency.value
-                sector = (instrument.sector
-                          if instrument.sector else DEFAULT_SECTOR).capitalize()
+                sector = (
+                    instrument.sector
+                    if instrument.sector else cnst.DEFAULT_SECTOR).capitalize()
                 v2 = cnst.get_item_value(item2, d2, self.__currency_helper)
                 y2 = cnst.get_item_yield(item2, d2, self.__currency_helper)
                 b2 = item2.quantity
