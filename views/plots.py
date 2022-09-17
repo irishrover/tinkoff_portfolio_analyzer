@@ -8,6 +8,10 @@ import textwrap
 
 from models import constants
 
+def _values_sign_func(x):
+    if x >= 0.0:
+        return 'Gain'
+    return 'Loss'
 
 class Plot:
 
@@ -164,41 +168,22 @@ class Plot:
         df[df.columns[0]] = df[df.columns[0]].apply(
             lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
         figure = px.sunburst(
-            df, values=df[df.columns[-1]],
+            df,
+            #maxdepth=3,
+            values=df[df.columns[-1]],
             names=df[df.columns[0]],
-            path=[df[df.columns[1]], df[df.columns[0]]])
+            path=[px.Constant("All"),
+                  df["Type"],
+                  df["Sector"],
+                  df["Currency"],
+                  df["Name"]])
         figure.update_layout(showlegend=False, height=800)
         figure.update_traces(
+            sort=True,
             hoverinfo='name+label+percent entry',
             hovertemplate='%{label}<br>%{value:,.0f}<br>%{percentEntry:,.1%}',
             textinfo='label+percent entry', textfont_size=20,
             marker=dict(line=dict(color='#000000', width=2)))
-        return dcc.Graph(figure=figure)
-
-
-    @staticmethod
-    def getTreeMapPlot(df, neg_values=True):
-        df = df.drop(0)
-        df = df[df[df.columns[-1]] != 0]
-        df["values"] = df[df.columns[-1]].abs()
-        wrapper = textwrap.TextWrapper(width=10)
-        df[df.columns[0]] = df[df.columns[0]].apply(
-            lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
-        figure = px.treemap(
-            {"labels": df[df.columns[0]],
-             "values": df[df.columns[-1]],
-             "colors": df[df.columns[-2]]},
-            path=[df[df.columns[1]],
-                  df[df.columns[2]],
-                  'labels'],
-            values='values', color="colors", color_continuous_midpoint=0.0
-            if neg_values else None,
-            color_continuous_scale=px.colors.diverging.PiYG
-            if neg_values else 'Plotly3')
-        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
-        figure.update_layout(
-            showlegend=False, height=800, extendtreemapcolors=True,
-            uniformtext=dict(minsize=11, mode='hide'))
         return dcc.Graph(figure=figure)
 
 
@@ -233,54 +218,81 @@ class Plot:
         fig.update_layout(title=first_title, title_x=0.5)
         return dcc.Graph(figure=fig)
 
-
     @staticmethod
-    def getTreeMapPlotWithNegForStats(df):
-        def values_sign_func(x):
-            if x >= 0.0:
-                return 'Positive'
-            return 'Negative'
-
-        data_column = 5
+    def getTreeMapPlotWithNeg(df, diff_col_name, with_neg=True):
         mask = df[df.columns[0]].str.contains(r'\[', na=False)
         df = df[~mask]
-        df = df[df[df.columns[data_column]] != 0]
-        df = df[df[df.columns[data_column]] != np.inf]
-        df = df[df[df.columns[1]] != 'RUB']
-        df = df[df[df.columns[1]] != 'USD000UTSTOM']
-        df['values_sign'] = df[df.columns[data_column]].apply(values_sign_func)
-        df["values"] = df[df.columns[data_column]].abs()
-        wrapper = textwrap.TextWrapper(width=10)
-        df[df.columns[0]] = df[df.columns[0]].apply(
+        df = df[df[diff_col_name] != 0]
+        df = df[df[diff_col_name] != np.inf]
+
+        # Skip empty dataframes
+        if df.empty:
+            return None
+
+        df = df.sort_values(['Name'])
+        df['values_sign'] = df[diff_col_name].apply(_values_sign_func)
+        df["values"] = df[diff_col_name].abs()
+        grouped_dict = {}
+        if with_neg:
+            group_by_list = ["values_sign", "Currency", "Sector"]
+        else:
+            group_by_list = ["Currency", "Sector"]
+        while any(group_by_list):
+            grouped_dict.update(df.groupby(group_by_list)[
+                                diff_col_name].sum().to_dict())
+            group_by_list.pop()
+
+        grouped_dict = dict(
+            ('All/' + ('/'.join(x[0]) if type(x[0]) is tuple else x[0]), x[1])
+            for x in grouped_dict.items())
+        grouped_dict['All'] = df[diff_col_name].sum()
+
+        wrapper = textwrap.TextWrapper(width=15)
+        df["Name"] = df["Name"].apply(
             lambda x: wrapper.fill(text=x).replace("\n", "<br>"))
+
+        if with_neg:
+            path=[px.Constant("All"),
+                  df['values_sign'],
+                  df['Currency'],
+                  df['Sector'],
+                  'labels']
+        else:
+            path=[px.Constant("All"),
+                  df['Currency'],
+                  df['Sector'],
+                  'labels']
+
         figure = px.treemap(
-            {"labels": df[df.columns[0]],
-             "values": df[df.columns[-1]],
-             "colors": df[df.columns[data_column]]},
-            path=[px.Constant("All"), df['values_sign'], df[df.columns[2]], 'labels'],
-            values='values', color="colors", color_continuous_midpoint=0.0,
-            color_continuous_scale=px.colors.diverging.PiYG)
-        figure.update_traces(hovertemplate='%{label}<br>%{color:,.0f}')
+            {"labels": df["Name"],
+             "values": df['values'],
+             "colors": df[diff_col_name]},
+            path=path,
+            branchvalues="total", values='values', color="colors",
+            color_continuous_midpoint=0.0,
+            color_continuous_scale=px.colors.diverging.PiYG,
+        )
+
+        figure.update_traces(hovertemplate='%{label}<br>%{customdata:,.0f}')
+        figure.update_traces(texttemplate="%{label}<br><br>%{customdata:,.0f}")
         figure.update_layout(
             showlegend=False, height=800, extendtreemapcolors=True,
-            uniformtext=dict(minsize=12, mode='hide'),
-            updatemenus=[
-                dict(
-                    buttons=list([
-                        dict(
-                            args=["path", [df['values_sign'], 'labels']],
-                            label="Pos/Neg",
-                            method="restyle",
-                        ),
-                        dict(
-                            args=["path", 'labels'],
-                            label="Labels",
-                            method="restyle",
-                        )
-                    ]),
-                    direction="down",
-                ),
-            ])
+            uniformtext=dict(minsize=12, mode='hide'))
+
+        grouped_list = list(grouped_dict[x]
+                            for x in figure.data[0].ids[df.shape[0]:])
+        figure.data[0].customdata = np.append(
+            figure.data[0].marker.colors[:df.shape[0]], grouped_list)
+        figure.data[0].marker.colors = np.append(
+            figure.data[0].marker.colors[:df.shape[0]], grouped_list)
+
+        for i in range(len(figure.data[0].labels)):
+            if figure.data[0].ids[i] in grouped_dict:
+                figure.data[0].labels[i] = f"<b>{figure.data[0].labels[i]}: {grouped_dict[figure.data[0].ids[i]]:,.0f}</b>"
+
+        if 0 in figure.data:
+            figure.data[0]['textfont']['size'] = 20
+
         return dcc.Graph(figure=figure)
 
     @staticmethod

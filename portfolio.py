@@ -63,7 +63,8 @@ def update_portfolios(all_accounts, api_context):
         fetch_date = cnst.NOW.date()
         positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
-        positions.append(pstns.V2.get_rub_position(api_context, account.id))
+        if rub_pos := pstns.V2.get_rub_position(api_context, account.id):
+            positions.append(rub_pos)
         account_positions.positions[fetch_date] = positions
         all_accounts[account.id] = account_positions
 
@@ -95,7 +96,8 @@ def get_full_name(item: pstns.Position):
                 'RUB')
     return (f'{instrument_data.name} ${instrument_data.ticker}',
             item.instrument_type.name.title(),
-            item.average_price.currency.name.title())
+            instrument_data.currency.name.title(),
+            instrument_data.sector.capitalize())
 
 
 def get_usd_df(key_dates):
@@ -144,6 +146,7 @@ def tune_df(df, key_dates, allowed_items, disallowed_dates):
     df['Name'] = df['Name'].astype('string')
     df['Type'] = df['Type'].astype('string')
     df['Currency'] = df['Currency'].astype('string')
+    df['Sector'] = df['Sector'].astype('string')
     df.attrs['disallowed_columns'] = list(
         x.strftime(cnst.DATE_FORMAT) for x in disallowed_dates)
     df.attrs['allowed_items'] = allowed_items
@@ -251,8 +254,8 @@ def get_data_frame_by_portfolio(account_id, portfolio):
         else:
             disallowed_dates.append(d)
 
-    columns = ['Name', 'Type',
-               'Currency'] + list(x.strftime(cnst.DATE_FORMAT) for x in key_dates)
+    columns = ['Name', 'Type', 'Currency',
+               'Sector'] + list(x.strftime(cnst.DATE_FORMAT) for x in key_dates)
 
     df_yields = pd.DataFrame(items_yields, columns=columns)
     df_totals = pd.DataFrame(items_totals, columns=columns)
@@ -377,23 +380,23 @@ def main():
                         dcc.Tabs(
                             [dcc.Tab(
                                 children=[html.Div(
-                                    [Table.get_stats_table(
-                                        df[1],
-                                        df[0]),
-                                        Plot.getTreeMapPlotWithNegForStats(df[1])])
+                                    [
+                                        Table.get_stats_table(df[1], df[0]),
+                                        Plot.getTreeMapPlotWithNeg(df[1], 'Diff')
+                                    ])
                                     for df in df_stats],
                                 label="Stats"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_totals, 'total'),
                                      Plot.getSunburstPlot(df_totals),
-                                     Plot.getTreeMapPlot(df_totals, False),
+                                     Plot.getTreeMapPlotWithNeg(df_totals, df_totals.columns[-1], False),
                                      Table.get_table(df_totals), ],
                                  label="Totals"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_yields, 'yield'),
-                                     Plot.getTreeMapPlot(df_yields),
+                                     Plot.getTreeMapPlotWithNeg(df_yields, df_yields.columns[-1]),
                                      Table.get_table(df_yields)],
                                  label="Yields"),
                              dcc.Tab(
