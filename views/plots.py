@@ -204,12 +204,12 @@ class Plot:
             visible = [False] * len(dfs)
             visible[i] = True
             name = d[0]
-            p = px.treemap(d[1], path=['day', 'time', 'sex'], values='total_bill').update_traces(visible=True if i==0 else False)
-            p.data[0].parents = ['sex']
+            p = px.treemap(d[1], path=['day', 'time', 'occupation'], values='total_bill').update_traces(visible=True if i==0 else False)
+            p.data[0].parents = ['occupation']
             traces.append(p.data[0])
             buttons.append(dict(label=name,
                                 method="update",
-                                args=[{"parents":['sex' if i == 0 else 'day']},
+                                args=[{"parents":['occupation' if i == 0 else 'day']},
                                     {"title":f"{name}"}]))
 
         updatemenus = [{'active':0, "buttons":buttons}]
