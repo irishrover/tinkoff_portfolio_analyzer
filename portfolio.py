@@ -188,8 +188,8 @@ def get_data_frame_by_portfolio(account_id, portfolio):
                 item, d, CURRENCY_HELPER)
             date_totals[d][full_name] = cnst.get_item_value(
                 item, d, CURRENCY_HELPER)
-            date_xirrs_tmp[(item.figi, full_name)
-                            ][d] = cnst.get_item_orig_value(item)
+            date_xirrs_tmp[(item.figi, full_name)][d] = cnst.get_item_value(
+                item, d, CURRENCY_HELPER)
             date_percents[d][full_name] = cnst.get_item_yield_percent(item)
 
         d_time_delta = d - datetime.timedelta(days=7)

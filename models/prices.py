@@ -7,7 +7,6 @@ import datetime
 import logging
 import marketdata_pb2
 
-
 class PriceHelper:
 
     @dataclass
