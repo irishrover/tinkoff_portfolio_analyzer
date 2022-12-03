@@ -72,7 +72,9 @@ def api_to_portfolio(positions) -> List[Position]:
         else:
             quantity = constants.sum_units_nano(p.quantity)
             curr_price = to_money(p.current_price)
-            avg_price = to_money(p.average_position_price_fifo)
+            # TODO: revert to average_position_price_fifo after https://github.com/Tinkoff/investAPI/issues/312
+            #assert p.average_position_price.currency == p.average_position_price_fifo.currency
+            avg_price = to_money(p.average_position_price)
             yield_price = Money(avg_price.currency,
                                 (curr_price.amount - avg_price.amount) * quantity)
             pos = Position(
@@ -81,6 +83,13 @@ def api_to_portfolio(positions) -> List[Position]:
                 expected_yield=yield_price, nkd=to_money(p.current_nkd)
                 if p.current_nkd.currency else Money())
             result[p.figi] = pos
+
+    # Handle RUB positions
+    if 'RUB000UTSTOM' in result:
+        rub_value = result['RUB000UTSTOM']
+        rub_value.figi = constants.FAKE_RUB_FIGI
+        result[rub_value.figi] = rub_value
+        del result['RUB000UTSTOM']
 
     return list(result.values())
 
@@ -93,22 +102,6 @@ class V2:
             if (acc.status == users_pb2.ACCOUNT_STATUS_OPEN) and
             (acc.type in [users_pb2.ACCOUNT_TYPE_TINKOFF,
                           users_pb2.ACCOUNT_TYPE_TINKOFF_IIS]))
-
-    @staticmethod
-    def get_rub_position(api_context, account_id):
-        positions = api_context.operations().GetPositions(
-            operations_pb2.PositionsRequest(account_id=account_id),
-            metadata=api_context.metadata())
-        for m in positions.money:
-            if m.currency.upper() == Currency.RUB.name:
-                return Position(
-                    InstrumentType.CURRENCY, figi=constants.FAKE_RUB_FIGI,
-                    quantity=constants.sum_units_nano(m),
-                    average_price=Money(Currency.RUB, 1.0),
-                    expected_yield=Money(Currency.RUB, 0.0),
-                    nkd=Money(Currency.RUB, 0.0))
-        return None
-
 
     @staticmethod
     def get_positions(api_context, account_id):

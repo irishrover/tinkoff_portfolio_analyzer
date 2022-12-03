@@ -63,8 +63,7 @@ def update_portfolios(all_accounts, api_context):
         fetch_date = cnst.NOW.date()
         positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
-        if rub_pos := pstns.V2.get_rub_position(api_context, account.id):
-            positions.append(rub_pos)
+
         account_positions.positions[fetch_date] = positions
         all_accounts[account.id] = account_positions
 
