@@ -103,6 +103,35 @@ class OperationsHelper:
     def commit(self):
         constants.dict2db(self.__operations_dict, self.__operations)
 
+    def __get_operations(self, account_id, min_date, max_date):
+        operations = []
+        cursor = ""
+        min_date_str = timestamp_from_datetime(min_date)
+        max_date_str = timestamp_from_datetime(max_date)
+        while True:
+            request = operations_pb2.GetOperationsByCursorRequest(
+                **
+                {"account_id": account_id,
+                 "limit": 1000,
+                 "state": operations_pb2.OperationState.OPERATION_STATE_EXECUTED,
+                 "from": min_date_str,
+                 "to": max_date_str,
+                 "without_trades": True,
+                 "cursor": cursor,
+                 })
+            curr_operations = self.__api_context.operations().GetOperationsByCursor(
+                request=request, metadata=self.__api_context.metadata())
+            operations.extend(list(curr_operations.items))
+            logging.info(
+                "update_operations: [%s] %s..%s, size: %d", account_id,
+                min_date.date(),
+                max_date.date(),
+                len(operations))
+            if not curr_operations.has_next:
+                break
+            cursor = curr_operations.next_cursor
+        return operations
+
 
     def update(self, account_id):
         account_operations = self.__operations_dict[account_id] \
@@ -117,25 +146,17 @@ class OperationsHelper:
         logging.info(
             "update_operations: [%s] %s..%s", account_id, min_date.date(),
             max_date.date())
-        request = operations_pb2.OperationsRequest(
-            **
-            {"account_id": account_id,
-            "state": operations_pb2.OperationState.OPERATION_STATE_EXECUTED,
-            "from": timestamp_from_datetime(min_date),
-            "to": timestamp_from_datetime(max_date)})
-        operations = self.__api_context.operations().GetOperations(
-            request=request, metadata=self.__api_context.metadata())
-        operations_v2 = []
-        for o in operations.operations:
-            operations_v2.append(
+        operations = self.__get_operations(account_id, min_date, max_date)
+        operation_items = []
+        for o in operations:
+            operation_items.append(
                 OperationItem(
                     id=o.id, date=constants.seconds_to_time(o.date),
-                    figi=o.figi, operation_type=Operation(int(o.operation_type)),
+                    figi=o.figi, operation_type=Operation(int(o.type)),
                     payment=value_to_money(o.payment)))
 
-        account_operations.update({(o.date, o.operation_type, o.id): o for o in operations_v2})
+        account_operations.update({(o.date, o.operation_type, o.id): o for o in operation_items})
         self.__operations_dict[account_id] = account_operations
-
 
     def get_all_operations_by_dates(self, account, dates):
         operations = sorted(

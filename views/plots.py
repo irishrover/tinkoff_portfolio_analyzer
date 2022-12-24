@@ -204,7 +204,11 @@ class Plot:
             visible = [False] * len(dfs)
             visible[i] = True
             name = d[0]
-            p = px.treemap(d[1], path=['day', 'time', 'occupation'], values='total_bill').update_traces(visible=True if i==0 else False)
+            p = px.treemap(
+                d[1],
+                path=['day', 'time', 'occupation'],
+                values='total_bill').update_traces(
+                visible=i == 0)
             p.data[0].parents = ['occupation']
             traces.append(p.data[0])
             buttons.append(dict(label=name,
@@ -243,7 +247,7 @@ class Plot:
             group_by_list.pop()
 
         grouped_dict = dict(
-            ('All/' + ('/'.join(x[0]) if type(x[0]) is tuple else x[0]), x[1])
+            ('All/' + ('/'.join(x[0]) if isinstance(x[0], tuple) else x[0]), x[1])
             for x in grouped_dict.items())
         grouped_dict['All'] = df[diff_col_name].sum()
 
