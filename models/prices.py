@@ -19,6 +19,7 @@ class PriceHelper:
 
     def __init__(
             self, api_context, instruments_helper, prices, first_trade_dates):
+        self.price_fetched_count = 0
         self.__api_context = api_context
         self.__prices = prices
         self.__prices_dict = constants.db2dict(self.__prices)
@@ -48,10 +49,32 @@ class PriceHelper:
             date, time).astimezone(
             constants.TIMEZONE)
 
+    @staticmethod
+    def fix_blocked_figi(figi):
+        # NuBank blocked shares
+        if figi == 'KYG6683N1034':
+            figi = 'BBG0136WM1M4'
+        # Realty Income REIT blocked shares
+        elif figi == 'US7561091049':
+            figi = 'BBG000DHPN63'
+        # Wells Fargo & Company blockes shares
+        elif figi == 'US9497461015':
+            figi = 'BBG000BWQFY7'
+        return figi
+
     def commit(self):
         constants.dict2db(self.__prices_dict, self.__prices)
         constants.dict2db(self.__first_trade_dates_dict,
                           self.__first_trade_dates)
+
+    def __commit_if_needed(self):
+        if self.price_fetched_count > 50:
+            self.commit()
+            self.price_fetched_count = 0
+            logging.info("commit prices")
+        else:
+            self.price_fetched_count += 1
+
 
     def __get_candles(self, figi, min_date, max_date):
         request = marketdata_pb2.GetCandlesRequest(**{
@@ -115,11 +138,14 @@ class PriceHelper:
                 last_value = prices[prepared_dd]
         self.__prices_dict[figi] = prices
         value = self.__prices_dict[figi].get(d, None)
+
+        self.__commit_if_needed()
         return value.price if value else 0.0
 
     def get_price(self, figi, d):
         if figi == constants.FAKE_RUB_FIGI:
             return 1.0
+        figi = PriceHelper.fix_blocked_figi(figi)
         d = constants.prepare_date(d)
         assert d <= constants.NOW.date()
         value = self.__ensure_price_loaded(figi, d)
@@ -127,6 +153,7 @@ class PriceHelper:
         return value
 
     def get_first_trade_date(self, figi):
+        figi = PriceHelper.fix_blocked_figi(figi)
         if figi in self.__first_trade_dates_dict:
             return self.__first_trade_dates_dict[figi]
         if figi == constants.FAKE_RUB_FIGI:
@@ -143,4 +170,6 @@ class PriceHelper:
         assert any(candles), figi
         self.__first_trade_dates_dict[figi] = min(
             constants.prepare_date(c.price_date) for c in candles)
+
+        self.__commit_if_needed()
         return self.__first_trade_dates_dict[figi]

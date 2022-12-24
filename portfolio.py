@@ -201,7 +201,7 @@ def get_data_frame_by_portfolio(account_id, portfolio):
                 cnst.get_item_price(
                     item, d_time_delta - datetime.timedelta(days=delta), PRICES_HELPER)
                 for delta in range(30))
-            if p_curr is not None and p_prev is not None:
+            if p_curr is not None and p_prev is not None and p_prev != 0.0:
                 date_prices[d][full_name] = 100.0 * (p_curr - p_prev) / p_prev
             else:
                 date_prices[d][full_name] = None
