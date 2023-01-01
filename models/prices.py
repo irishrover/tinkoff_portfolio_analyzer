@@ -53,13 +53,13 @@ class PriceHelper:
     def fix_blocked_figi(figi):
         # NuBank blocked shares
         if figi == 'KYG6683N1034':
-            figi = 'BBG0136WM1M4'
+            return 'BBG0136WM1M4'
         # Realty Income REIT blocked shares
         elif figi == 'US7561091049':
-            figi = 'BBG000DHPN63'
+            return 'BBG000DHPN63'
         # Wells Fargo & Company blockes shares
         elif figi == 'US9497461015':
-            figi = 'BBG000BWQFY7'
+            return 'BBG000BWQFY7'
         return figi
 
     def commit(self):
@@ -68,7 +68,7 @@ class PriceHelper:
                           self.__first_trade_dates)
 
     def __commit_if_needed(self):
-        if self.price_fetched_count > 50:
+        if self.price_fetched_count > 100:
             self.commit()
             self.price_fetched_count = 0
             logging.info("commit prices")

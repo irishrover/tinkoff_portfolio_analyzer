@@ -247,11 +247,12 @@ class OperationsHelper:
         result = defaultdict(float)
         if any(operations):
             for d in dates_totals:
+                prepared_d = constants.prepare_date(d)
                 dates_amounts = [
                     (o[1].date, o[1].payment.amount * self.__currency_helper.
                      get_rate_for_date(o[1].date, o[1].payment.currency))
                     for o in operations
-                    if o[1].date.date() <= constants.prepare_date(d)]
+                    if o[1].date.date() <= prepared_d]
                 if dates_totals[d] == 0:
                     result[d] = 0
                 else:
