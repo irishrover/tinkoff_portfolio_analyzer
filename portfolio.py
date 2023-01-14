@@ -13,6 +13,10 @@ from sqlitedict import SqliteDict
 import grpc
 import pandas as pd
 
+import progressbar
+import progressbar.widgets
+progressbar.streams.wrap_stderr()
+
 from gen import users_pb2
 from models import constants as cnst
 from models import currency, instruments, operations
@@ -48,6 +52,7 @@ INSTRUMENTS_HELPER = None
 
 def update_portfolios(all_accounts, api_context):
     accounts = list(pstns.V2.get_accounts(api_context))
+    bar = create_progressbar('update_portfolios', len(accounts))
     for account in accounts:
         logging.info(
             "update_portfolios '%s' [%s]", account.name, account.id)
@@ -64,8 +69,33 @@ def update_portfolios(all_accounts, api_context):
         positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
 
+
+        #del account_positions.positions[datetime.date(2023, 1, 9)]
+        #print(account_positions.positions.keys())
+
         account_positions.positions[fetch_date] = positions
         all_accounts[account.id] = account_positions
+        bar.increment(1, notes=account.name)
+
+    bar.finish()
+
+
+def create_progressbar(title, size):
+    widgets = [
+        title +': ',
+        progressbar.Variable('notes', format='{formatted_value}'),
+
+        progressbar.Percentage(),
+        ' ', progressbar.GranularBar(
+            markers=progressbar.widgets.GranularMarkers.dots,
+            left='', right='|'),
+        ' ', progressbar.AdaptiveETA(format='%(elapsed)8s | ETA: %(eta)8s'),
+        ]
+    return progressbar.ProgressBar(
+        max_value=size,
+        poll_interval=0.5,
+        widgets=widgets,
+        redirect_stdout=False).start()
 
 
 def pretty_print_date_diff(day, diff):
@@ -358,12 +388,15 @@ def main():
         accounts.commit()
 
         tabs = []
+        bar = create_progressbar('Building charts', len(accounts) * 4)
         for account in accounts.values():
             OPERATIONS_HELPER.update(account.id)
+            bar.increment(1, notes=account.name)
             tables = []
             logging.info("get_data_frame_by_portfolio is starting")
             df_yields, df_totals, df_percents, df_xirrs, df_prices, df_stats, df_usd \
                 = get_data_frame_by_portfolio(account.id, account.positions)
+            bar.increment(1)
             logging.info("get_data_frame_by_portfolio done")
             tables.append(Plot.getTotalWithMAPlot(
                 df_yields, df_totals, df_percents, df_usd))
@@ -372,6 +405,7 @@ def main():
             numeric_columns = df_xirrs_clipped.select_dtypes('number').columns
             df_xirrs_clipped[numeric_columns] = df_xirrs_clipped[numeric_columns].clip(
                 -100, 300)
+            bar.increment(1)
 
             if start_server:
                 tables.append(
@@ -427,22 +461,37 @@ def main():
                     dcc.Tab(
                         label=account.name,
                         children=tables))
+            bar.increment(1)
 
+    bar.finish()
 
-    OPERATIONS_HELPER.commit()
-    OPERATIONS.commit()
-    OPERATIONS.close()
+    logging.info("Saving the data")
+    with create_progressbar('Saving the data', 4 * 3) as bar:
+        OPERATIONS_HELPER.commit()
+        bar.increment(1, notes="operations")
+        OPERATIONS.commit()
+        bar.increment()
+        OPERATIONS.close()
+        bar.increment()
 
-    PRICES_HELPER.commit()
-    PRICES.commit()
-    PRICES.close()
+        PRICES_HELPER.commit()
+        bar.increment(1, notes="prices")
+        PRICES.commit()
+        bar.increment()
+        PRICES.close()
+        bar.increment()
 
-    FIRST_DATE_TRADES.commit()
-    FIRST_DATE_TRADES.close()
+        FIRST_DATE_TRADES.commit()
+        bar.increment(1, notes="first trade dates")
+        FIRST_DATE_TRADES.close()
+        bar.increment()
 
-    INSTRUMENTS_HELPER.commit()
-    INSTRUMENTS.commit()
-    INSTRUMENTS.close()
+        INSTRUMENTS_HELPER.commit()
+        bar.increment(1, notes="instruments")
+        INSTRUMENTS.commit()
+        bar.increment()
+        INSTRUMENTS.close()
+        bar.increment()
 
     if start_server:
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
