@@ -69,6 +69,7 @@ class Operation(Enum):
     TAX_REPO_REFUND_PROGRESSIVE = 42
     DIV_EXT = 43
     TAX_CORRECTION_COUPON = 44
+    OUT_STAMP_DUTY = 47
 
     @staticmethod
     def visible():
