@@ -80,14 +80,9 @@ def update_portfolios(all_accounts, api_context):
     bar.finish()
 
 
-def a():
-    a = a
-
 def create_progressbar(title, size):
     widgets = [
-        title +': ',
-        progressbar.Variable('notes', format='{formatted_value}'),
-
+        f"{title+': ':20s}", progressbar.Variable('notes', format='{formatted_value:20s}'),
         progressbar.Percentage(),
         ' ', progressbar.GranularBar(
             markers=progressbar.widgets.GranularMarkers.dots,
