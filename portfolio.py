@@ -80,6 +80,9 @@ def update_portfolios(all_accounts, api_context):
     bar.finish()
 
 
+def a():
+    a = a
+
 def create_progressbar(title, size):
     widgets = [
         title +': ',
