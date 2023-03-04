@@ -113,13 +113,14 @@ class PortfolioComparer:
 
         assert account in self.__prepared_operations
         all_operations = self.__prepared_operations[account]
-        for op in (o for o in Operation if o.visible()):
+        for op in Operation:
             assert op in self.__prepared_operations[account]
-            if all_operations[op][d1] != all_operations[op][d2]:
-                result.append(
-                    PortfolioComparer.__get_total_row(
-                        f"[{op.name.title()}]", all_operations[op][d1],
-                        all_operations[op][d2]))
+            if op.always_visible() \
+                or all_operations[op][d1] != all_operations[op][d2]:
+                result.append(PortfolioComparer.__get_total_row(
+                    f"[{op.name.title()}]",
+                    all_operations[op][d1],
+                    all_operations[op][d2]))
 
         payins = all_operations[Operation.INPUT]
         payouts = all_operations[Operation.OUTPUT]

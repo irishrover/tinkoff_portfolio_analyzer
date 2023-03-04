@@ -71,9 +71,11 @@ class Operation(Enum):
     TAX_CORRECTION_COUPON = 44
     OUT_STAMP_DUTY = 47
 
-    @staticmethod
-    def visible():
-        return True
+    def always_visible(self):
+        return self.value in [
+            Operation.INPUT.value, Operation.OUTPUT.value,
+            Operation.DIVIDEND.value, Operation.COUPON.value
+        ]
 
 
 @dataclass
