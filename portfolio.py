@@ -63,6 +63,10 @@ def update_portfolios(all_accounts, api_context):
                                                      name=account.name, type=pstns.AccountType.BROKER
                                                      if account.type == users_pb2.ACCOUNT_TYPE_TINKOFF else
                                                      users_pb2.ACCOUNT_TYPE_TINKOFF_IIS)
+        else:
+            acc = all_accounts[account.id]
+            acc.name = account.name
+            all_accounts[account.id] = acc
 
         account_positions = all_accounts[account.id]
         fetch_date = cnst.NOW.date()
