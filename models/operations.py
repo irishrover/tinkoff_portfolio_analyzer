@@ -1,15 +1,18 @@
+from enum import Enum
+from dataclasses import dataclass
+from collections import defaultdict
 import datetime
 import logging
 import sys
 import google.protobuf.timestamp_pb2 as ggl
+
 sys.path.append('gen')
-from collections import defaultdict
-from dataclasses import dataclass
-from enum import Enum
-from gen import operations_pb2
-from pyxirr import xirr  # pylint: disable=no-name-in-module
-from models import constants
+
 from models.base_classes import Currency, Money
+from models import constants
+from pyxirr import xirr  # pylint: disable=no-name-in-module
+from gen import operations_pb2
+
 
 
 def timestamp_from_datetime(dt):
@@ -24,52 +27,68 @@ def value_to_money(v):
 
 
 class Operation(Enum):
-    UNSPECIFIED = 0
-    INPUT = 1
-    BOND_TAX = 2
-    OUTPUT_SECURITIES = 3
-    OVERNIGHT = 4
-    TAX = 5
-    BOND_REPAYMENT_FULL = 6
-    SELL_CARD = 7
-    DIVIDEND_TAX = 8
-    OUTPUT = 9
-    BOND_REPAYMENT = 10
-    TAX_CORRECTION = 11
-    SERVICE_FEE = 12
-    BENEFIT_TAX = 13
-    MARGIN_FEE = 14
-    BUY = 15
-    BUY_CARD = 16
-    INPUT_SECURITIES = 17
-    SELL_MARGIN = 18
-    BROKER_FEE = 19
-    BUY_MARGIN = 20
-    DIVIDEND = 21
-    SELL = 22
-    COUPON = 23
-    SUCCESS_FEE = 24
-    DIVIDEND_TRANSFER = 25
-    ACCRUING_VARMARGIN = 26
-    WRITING_OFF_VARMARGIN = 27
-    DELIVERY_BUY = 28
-    DELIVERY_SELL = 29
-    TRACK_MFEE = 30
-    TRACK_PFEE = 31
-    TAX_PROGRESSIVE = 32
-    BOND_TAX_PROGRESSIVE = 33
-    DIVIDEND_TAX_PROGRESSIVE = 34
-    BENEFIT_TAX_PROGRESSIVE = 35
-    TAX_CORRECTION_PROGRESSIVE = 36
-    TAX_REPO_PROGRESSIVE = 37
-    TAX_REPO = 38
-    TAX_REPO_HOLD = 39
-    TAX_REPO_REFUND = 40
-    TAX_REPO_HOLD_PROGRESSIVE = 41
-    TAX_REPO_REFUND_PROGRESSIVE = 42
-    DIV_EXT = 43
-    TAX_CORRECTION_COUPON = 44
-    OUT_STAMP_DUTY = 47
+    UNSPECIFIED = 0  # Тип операции не определён.
+    INPUT = 1  # Пополнение брокерского счёта.
+    BOND_TAX = 2  # Удержание НДФЛ по купонам.
+    OUTPUT_SECURITIES = 3  # Вывод ЦБ.
+    OVERNIGHT = 4  # Доход по сделке РЕПО овернайт.
+    TAX = 5  # Удержание налога.
+    BOND_REPAYMENT_FULL = 6  # Полное погашение облигаций.
+    SELL_CARD = 7  # Продажа ЦБ с карты.
+    DIVIDEND_TAX = 8  # Удержание налога по дивидендам.
+    OUTPUT = 9  # Вывод денежных средств.
+    BOND_REPAYMENT = 10  # Частичное погашение облигаций.
+    TAX_CORRECTION = 11  # Корректировка налога.
+    SERVICE_FEE = 12  # Удержание комиссии за обслуж.брок.счёта.
+    BENEFIT_TAX = 13  # Удержание налога за материальную выгоду.
+    MARGIN_FEE = 14  # Удержание комиссии за непокрытую позицию.
+    BUY = 15  # Покупка ЦБ.
+    BUY_CARD = 16  # Покупка ЦБ с карты.
+    INPUT_SECURITIES = 17  # Перевод ценных бумаг из другого депо.
+    SELL_MARGIN = 18  # Продажа в результате Margin-call.
+    BROKER_FEE = 19  # Удержание комиссии за операцию.
+    BUY_MARGIN = 20  # Покупка в результате Margin-call.
+    DIVIDEND = 21  # Выплата дивидендов.
+    SELL = 22  # Продажа ЦБ.
+    COUPON = 23  # Выплата купонов.
+    SUCCESS_FEE = 24  # Удержание комиссии SuccessFee.
+    DIVIDEND_TRANSFER = 25  # Передача дивидендного дохода.
+    ACCRUING_VARMARGIN = 26  # Зачисление вариационной маржи.
+    WRITING_OFF_VARMARGIN = 27  # Списание вариационной маржи.
+    DELIVERY_BUY = 28  # Покупка в рамках экспир.фьюч.контракта.
+    DELIVERY_SELL = 29  # Продажа в рамках экспир. фьюч контракта.
+    TRACK_MFEE = 30  # Комиссия за управление по счёту автослед.
+    TRACK_PFEE = 31  # Комиссия за результат по счёту автослед.
+    TAX_PROGRESSIVE = 32  # Удержание налога по ставке 15%.
+    BOND_TAX_PROGRESSIVE = 33  # Удержание налога по купонам 15%.
+    DIVIDEND_TAX_PROGRESSIVE = 34  # Удержание налога по див.15%.
+    BENEFIT_TAX_PROGRESSIVE = 35  # Удержание налога за м/в 15%.
+    TAX_CORRECTION_PROGRESSIVE = 36  # Корректировка налога 15%.
+    TAX_REPO_PROGRESSIVE = 37  # Удержание налога РЕПО 15%.
+    TAX_REPO = 38  # Удержание налога за возмещ. по сделкам РЕПО.
+    TAX_REPO_HOLD = 39  # Удержание налога по сделкам РЕПО.
+    TAX_REPO_REFUND = 40  # Возврат налога по сделкам РЕПО.
+    TAX_REPO_HOLD_PROGRESSIVE = 41  # Удержание налога по РЕПО 15%
+    TAX_REPO_REFUND_PROGRESSIVE = 42  # Возврат налога РЕПО 15%.
+    DIV_EXT = 43  # Выплата дивидендов на карту.
+    TAX_CORRECTION_COUPON = 44  # Корректировка налога по купонам.
+    CASH_FEE = 45  # Комиссия за валютный остаток.
+    OUT_FEE = 46  # Комиссия за вывод валюты с брокерского счета.
+    OUT_STAMP_DUTY = 47  # Гербовый сбор.
+    OUTPUT_SWIFT = 50  # SWIFT-перевод
+    INPUT_SWIFT = 51  # SWIFT-перевод
+    OUTPUT_ACQUIRING = 53  # Перевод на карту
+    INPUT_ACQUIRING = 54  # Перевод с карты
+    OUTPUT_PENALTY = 55  # Комиссия за вывод средств
+    ADVICE_FEE = 56  # Списание оплаты за сервис Советов
+    TRANS_IIS_BS = 57  # Перевод ценных бумаг с ИИС на бр. счет
+    TRANS_BS_BS = 58  # Перевод ц/б с одного бр.счета на другой
+    OUT_MULTI = 59  # Вывод денежных средств со счета
+    INP_MULTI = 60  # Пополнение денежных средств со счета
+    OVER_PLACEMENT = 61  # Размещение биржевого овернайта
+    OVER_COM = 62  # Списание комиссии
+    OVER_INCOME = 63  # Доход от оверанайта
+    OPTION_EXPIRATION = 64  # Экспирация
 
     def always_visible(self):
         return self.value in [
@@ -80,7 +99,7 @@ class Operation(Enum):
 
 @dataclass
 class OperationItem:
-    id : str
+    id: str
     date: datetime.date
     figi: str
     operation_type: Operation
@@ -95,13 +114,11 @@ class OperationsHelper:
          Operation.DIVIDEND])
     PAY_IN_OUT_NAMES_SET = frozenset([Operation.INPUT, Operation.OUTPUT])
 
-
     def __init__(self, api_context, currency_helper, operations):
         self.__operations = operations
         self.__api_context = api_context
         self.__operations_dict = constants.db2dict(self.__operations)
         self.__currency_helper = currency_helper
-
 
     def commit(self):
         constants.dict2db(self.__operations_dict, self.__operations)
@@ -135,7 +152,6 @@ class OperationsHelper:
             cursor = curr_operations.next_cursor
         return operations
 
-
     def update(self, account_id):
         account_operations = self.__operations_dict[account_id] \
             if account_id in self.__operations_dict else {}
@@ -158,7 +174,8 @@ class OperationsHelper:
                     figi=o.figi, operation_type=Operation(int(o.type)),
                     payment=value_to_money(o.payment)))
 
-        account_operations.update({(o.date, o.operation_type, o.id): o for o in operation_items})
+        account_operations.update(
+            {(o.date, o.operation_type, o.id): o for o in operation_items})
         self.__operations_dict[account_id] = account_operations
 
     def get_all_operations_by_dates(self, account, dates):
@@ -211,7 +228,6 @@ class OperationsHelper:
             d_i += 1
         return result
 
-
     def get_total_xirr(self, account, dates_totals):
         last_date = datetime.datetime.combine(
             max(dates_totals.keys()),
@@ -234,7 +250,6 @@ class OperationsHelper:
                 res = xirr(dates_amounts)
                 result[d] = res * 100.0 if res else 0.0
         return result
-
 
     def get_item_xirrs(self, account, figi, dates_totals):
         last_date = datetime.datetime.combine(

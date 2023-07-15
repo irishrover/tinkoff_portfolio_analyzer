@@ -73,8 +73,9 @@ def update_portfolios(all_accounts, api_context):
         positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
 
-
-        #del account_positions.positions[datetime.date(2023, 1, 9)]
+        for d in []:
+            if d in account_positions.positions:
+                del account_positions.positions[d]
         #print(account_positions.positions.keys())
 
         account_positions.positions[fetch_date] = positions
@@ -222,6 +223,11 @@ def get_data_frame_by_portfolio(account_id, portfolio):
             date_xirrs_tmp[(item.figi, full_name)][d] = cnst.get_item_value(
                 item, d, CURRENCY_HELPER)
             date_percents[d][full_name] = cnst.get_item_yield_percent(item)
+            if str(account_id) == '2001004122':
+                q = get_full_name(item)
+                if q[0] == 'Тинькофф Technology $TECH':
+                    print(d, q, q[2], item)
+
 
         d_time_delta = d - datetime.timedelta(days=7)
         for item in all_items.values():
