@@ -9,6 +9,17 @@ import marketdata_pb2
 
 class PriceHelper:
 
+    MISSING_FIGIS = frozenset(
+        ['BBG00L31GQQ4', 'BBG00QKPJVK3', 'BBG0073DLHS1', 'BBG005VKB7D7',
+         'BBG005HLSZ23', 'BBG00P5M77Y0', 'BBG00NNQMD85', 'BBG005HLTYH9',
+         'BBG00Y6D0N45', 'BBG005H7MXN2', 'BBG00R980XY3', 'BBG00M8C8Y03',
+         'TCS00A103VJ5', 'TCS00A103VK3', 'BBG00QDTJQD2', 'BBG00PNDGP98',
+         'BBG00GVWHJJ9', 'BBG00Q38CTS4', 'BBG00Q9K64Q5', 'BBG013N16YX7',
+         'BBGHUYNYA0X3', 'IE0000CHPRB9', 'IE00BK224M36', 'TCS0BD3QFB18',
+         'IE00BD3QJ757', 'IE00BG0C3K84', 'BBG00HBPXX50', 'BBG00NTZWLM4',
+         'BBG00PYMSNH9', 'BBG00Q214T90', 'BBG00P3B1V33', 'BBG00PNM0N81',
+         'BBG00PVVTDW6', 'BBG00Q41F4Y3', ])
+
     @dataclass
     class PriceItem:
         price_date: datetime.date
@@ -153,6 +164,8 @@ class PriceHelper:
         return value
 
     def get_first_trade_date(self, figi):
+        if figi in self.MISSING_FIGIS:
+            return constants.NOW.date()
         figi = PriceHelper.fix_blocked_figi(figi)
         if figi in self.__first_trade_dates_dict:
             return self.__first_trade_dates_dict[figi]

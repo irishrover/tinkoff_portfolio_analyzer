@@ -16,7 +16,7 @@ def _values_sign_func(x):
 class Plot:
 
     @staticmethod
-    def getTotalWithMAPlot(df_yield, df_total, df_percents, df_usd):
+    def getTotalWithMAPlot(df_yield, df_total, df_percents, df_usd, df_xirrs):
         figure = make_subplots(specs=[[{"secondary_y": True}]])
 
         total_x = list(df_total.attrs['date_columns'])
@@ -74,6 +74,26 @@ class Plot:
                 hovertemplate='%{x}<br>%{y:,.1f}%'),
             secondary_y=True)
 
+        # XIRR
+        figure.add_trace(go.Scatter(
+            visible='legendonly',
+            name='XIRR',
+            mode='lines+markers',
+            line=dict(color='rgba(255, 128, 64, 0.55)', width=6, shape="spline"),
+            x=list(df_xirrs.attrs['date_columns']),
+            y=df_xirrs.iloc[0, constants.SUMMARY_COLUMNS_SIZE:],
+            hovertemplate='%{x}<br>%{y:,.1f}%'),
+            secondary_y=True)
+
+        figure.add_trace(go.Scatter(
+            name='XIRR MA',
+            mode='lines',
+            line=dict(color='rgba(255, 128, 64, 0.35)', width=6, shape="spline"),
+            x=list(df_xirrs.attrs['date_columns']),
+            y=df_xirrs.iloc[0, constants.SUMMARY_COLUMNS_SIZE:].rolling(constants.MOVING_AVERAGE_DAYS).mean(),
+            hovertemplate='%{x}<br>%{y:,.1f}%'),
+            secondary_y=True)
+
         # USD
         figure.add_trace(go.Scatter(
             visible='legendonly',
@@ -96,7 +116,7 @@ class Plot:
                 hovertemplate='%{x}<br>%{y:,.1f}%'),
             secondary_y=True)
 
-        figure.update_layout(showlegend=True, height=750,
+        figure.update_layout(showlegend=True, height=700,
                              legend=dict(orientation="h", yanchor="top",
                                          y=1.05, x=.5, xanchor="center"),
                              margin=dict(l=0, r=0, t=0, b=0))

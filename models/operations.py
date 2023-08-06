@@ -8,7 +8,7 @@ import google.protobuf.timestamp_pb2 as ggl
 
 sys.path.append('gen')
 
-from models.base_classes import Currency, Money
+from models.base_classes import Currency, Money, InstrumentType
 from models import constants
 from pyxirr import xirr  # pylint: disable=no-name-in-module
 from gen import operations_pb2
@@ -100,6 +100,7 @@ class Operation(Enum):
 @dataclass
 class OperationItem:
     id: str
+    instrument_uid: str
     date: datetime.date
     figi: str
     operation_type: Operation
@@ -119,6 +120,11 @@ class OperationsHelper:
         self.__api_context = api_context
         self.__operations_dict = constants.db2dict(self.__operations)
         self.__currency_helper = currency_helper
+        # Upgrade figi
+        for _, value in self.__operations_dict.items():
+            for __, op in value.items():
+                op.figi = constants.upgrade_figi(op.figi)
+
 
     def commit(self):
         constants.dict2db(self.__operations_dict, self.__operations)
@@ -170,8 +176,10 @@ class OperationsHelper:
         for o in operations:
             operation_items.append(
                 OperationItem(
-                    id=o.id, date=constants.seconds_to_time(o.date),
-                    figi=o.figi, operation_type=Operation(int(o.type)),
+                    id=o.id, instrument_uid=o.instrument_uid,
+                    date=constants.seconds_to_time(o.date),
+                    figi=constants.upgrade_figi(o.figi),
+                    operation_type=Operation(int(o.type)),
                     payment=value_to_money(o.payment)))
 
         account_operations.update(
@@ -251,18 +259,23 @@ class OperationsHelper:
                 result[d] = res * 100.0 if res else 0.0
         return result
 
-    def get_item_xirrs(self, account, figi, dates_totals):
+    def get_item_xirrs(self, account, instrument, dates_totals):
+        result = defaultdict(float)
+        if instrument.instrument_type == InstrumentType.CURRENCY:
+            return result
         last_date = datetime.datetime.combine(
             max(dates_totals.keys()),
             datetime.time.max).astimezone()
+        upgraded_instr_figi = constants.upgrade_figi(instrument.figi)
         operations = sorted(
             ((k[0],
               v) for k, v in self.__operations_dict[account].items()
-             if v.figi == figi and v.date <= last_date and
+             if(
+                 v.instrument_uid == instrument.uid or v.figi ==
+                 upgraded_instr_figi) and v.date <= last_date and
              k[1] in self.OPERATION_NAMES_SET),
             key=lambda k: k[0])
 
-        result = defaultdict(float)
         if any(operations):
             for d in dates_totals:
                 prepared_d = constants.prepare_date(d)
@@ -280,5 +293,7 @@ class OperationsHelper:
                     except:
                         res = None
                     result[d] = res * 100.0 if res else 0.0
+        else:
+            logging.info("xirr: no ops %s15s\t%20s\t%20s/%s", account, instrument.uid, instrument.figi, last_date)
 
         return result

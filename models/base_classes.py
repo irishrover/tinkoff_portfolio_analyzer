@@ -42,6 +42,14 @@ class InstrumentType(Enum):
     ETF = "Etf"
     SHARE = "Stock"
 
+    @staticmethod
+    def prepare_type(t):
+        assert not isinstance(t, InstrumentType), t
+        t = t.title()
+        if t == 'Share':
+            t = 'Stock'
+        return InstrumentType(t)
+
 
 class Currency(Enum):
     AED = "AED"

@@ -22,7 +22,7 @@ from models import constants as cnst
 from models import currency, instruments, operations
 from models import positions as pstns
 from models import prices, stats
-from models.base_classes import ApiContext, Currency
+from models.base_classes import ApiContext, Currency, InstrumentType
 from models.operations import Operation
 from views.plots import Plot
 from views.tables import Table
@@ -70,17 +70,31 @@ def update_portfolios(all_accounts, api_context):
 
         account_positions = all_accounts[account.id]
         fetch_date = cnst.NOW.date()
-        positions = pstns.api_to_portfolio(
+        today_positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
 
-        for d in []:
-            if d in account_positions.positions:
-                del account_positions.positions[d]
+        #for d in [datetime.date(2023, 9, 24), datetime.date(2023, 9, 23),]:
+        #    if d in account_positions.positions:
+        #        del account_positions.positions[d]
         #print(account_positions.positions.keys())
 
-        account_positions.positions[fetch_date] = positions
+        # Upgrade FIGI if it changed.
+        for d, positions in account_positions.positions.items():
+            for p in positions:
+                p.figi = cnst.upgrade_figi(p.figi)
+
+        account_positions.positions[fetch_date] = today_positions
         all_accounts[account.id] = account_positions
         bar.increment(1, notes=account.name)
+
+    # Fix instrument type
+    for account_id in all_accounts.keys():
+        account = all_accounts[account_id]
+        for d, positions in account.positions.items():
+            for p in positions:
+                if (isinstance(p.instrument_type, str)):
+                    p.instrument_type = InstrumentType.prepare_type(p.instrument_type)
+        all_accounts[account_id] = account
 
     bar.finish()
 
@@ -125,7 +139,7 @@ def get_full_name(item: pstns.Position):
     if not item.average_price:
         return (f'{instrument_data.name} ${instrument_data.ticker}',
                 item.instrument_type,
-                'RUB')
+                'RUB', '')
     return (f'{instrument_data.name} ${instrument_data.ticker}',
             item.instrument_type.name.title(),
             instrument_data.currency.name.title(),
@@ -223,11 +237,6 @@ def get_data_frame_by_portfolio(account_id, portfolio):
             date_xirrs_tmp[(item.figi, full_name)][d] = cnst.get_item_value(
                 item, d, CURRENCY_HELPER)
             date_percents[d][full_name] = cnst.get_item_yield_percent(item)
-            if str(account_id) == '2001004122':
-                q = get_full_name(item)
-                if q[0] == 'Тинькофф Technology $TECH':
-                    print(d, q, q[2], item)
-
 
         d_time_delta = d - datetime.timedelta(days=7)
         for item in all_items.values():
@@ -246,8 +255,9 @@ def get_data_frame_by_portfolio(account_id, portfolio):
 
     # Fill XIRRs separately.
     for k, v in date_xirrs_tmp.items():
-        if k[0] != cnst.USD_FIGI:
-            xirrs = OPERATIONS_HELPER.get_item_xirrs(account_id, k[0], v)
+        if k[0] != cnst.USD_FIGI and k[0] != cnst.FAKE_RUB_FIGI:
+            instr = INSTRUMENTS_HELPER.get_by_figi(k[0])
+            xirrs = OPERATIONS_HELPER.get_item_xirrs(account_id, instr, v)
             for d in key_dates:
                 date_xirrs[d][k[1]] = xirrs[d]
         else:
@@ -361,7 +371,7 @@ def main():
         nonlocal start_server
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            "-log", "--log", default='info',
+            "-log", "--log", default='warning',
             help="Provide logging level. Example --log debug'")
         parser.add_argument(
             "--no-server", dest="no_server", action='store_true',
@@ -407,7 +417,7 @@ def main():
             bar.increment(1)
             logging.info("get_data_frame_by_portfolio done")
             tables.append(Plot.getTotalWithMAPlot(
-                df_yields, df_totals, df_percents, df_usd))
+                df_yields, df_totals, df_percents, df_usd, df_xirrs))
 
             df_xirrs_clipped = df_xirrs.copy()
             numeric_columns = df_xirrs_clipped.select_dtypes('number').columns

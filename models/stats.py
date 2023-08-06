@@ -193,7 +193,7 @@ class PortfolioComparer:
                 y1 = cnst.get_item_yield(item1, d1, self.__currency_helper)
                 b1 = item1.quantity
                 xirr1 = self.__operations_helper.get_item_xirrs(
-                    account, item1.figi,
+                    account, instrument,
                     {d1: cnst.get_item_orig_value(item1)})
             if in_items2:
                 item2 = items2[name]
@@ -207,7 +207,7 @@ class PortfolioComparer:
                 y2 = cnst.get_item_yield(item2, d2, self.__currency_helper)
                 b2 = item2.quantity
                 xirr2 = self.__operations_helper.get_item_xirrs(
-                    account, item2.figi,
+                    account, instrument,
                     {d2: cnst.get_item_orig_value(item2)})
             if v1 != v2:
                 result.append((name, ticker, currency, sector, *

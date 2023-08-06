@@ -48,12 +48,6 @@ def api_to_portfolio(positions) -> List[Position]:
                 currency.upper() if currency else v.currency.upper()),
             amount=constants.sum_units_nano(v))
 
-    def prepare_type(t):
-        t = t.title()
-        if t == 'Share':
-            t = 'Stock'
-        return t
-
     result = {}
     for p in positions:
         if p.figi in result:
@@ -78,7 +72,7 @@ def api_to_portfolio(positions) -> List[Position]:
             yield_price = Money(avg_price.currency,
                                 (curr_price.amount - avg_price.amount) * quantity)
             pos = Position(
-                InstrumentType(prepare_type(p.instrument_type)),
+                InstrumentType.prepare_type(p.instrument_type),
                 figi=p.figi, quantity=quantity, average_price=avg_price,
                 expected_yield=yield_price, nkd=to_money(p.current_nkd)
                 if p.current_nkd.currency else Money())
