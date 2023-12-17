@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import textwrap
+import logging
 
 from models import constants
 
@@ -206,41 +207,6 @@ class Plot:
             marker=dict(line=dict(color='#000000', width=2)))
         return dcc.Graph(figure=figure)
 
-
-    @staticmethod
-    def getTreeMapPlotWithNegForStats2(df):
-        df = px.data.tips()
-
-        # We have a list for every day
-        # In your case will be gropuby('RuleName')
-        # here for every element d
-        # d[0] is the name(key) and d[1] is the dataframe
-        dfs = list(df.groupby("day"))
-
-        first_title = dfs[0][0]
-        traces = []
-        buttons = []
-        for i,d in enumerate(dfs):
-            visible = [False] * len(dfs)
-            visible[i] = True
-            name = d[0]
-            p = px.treemap(
-                d[1],
-                path=['day', 'time', 'occupation'],
-                values='total_bill').update_traces(
-                visible=i == 0)
-            p.data[0].parents = ['occupation']
-            traces.append(p.data[0])
-            buttons.append(dict(label=name,
-                                method="update",
-                                args=[{"parents":['occupation' if i == 0 else 'day']},
-                                    {"title":f"{name}"}]))
-
-        updatemenus = [{'active':0, "buttons":buttons}]
-        fig = go.Figure(data=traces,
-                        layout=dict(updatemenus=updatemenus))
-        fig.update_layout(title=first_title, title_x=0.5)
-        return dcc.Graph(figure=fig)
 
     @staticmethod
     def getTreeMapPlotWithNeg(df, diff_col_name, with_neg=True):

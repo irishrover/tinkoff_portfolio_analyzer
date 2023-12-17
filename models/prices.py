@@ -1,11 +1,11 @@
+import marketdata_pb2
+import logging
+import datetime
+from models import constants
+from dataclasses import dataclass
 import sys
 sys.path.append('gen')
 
-from dataclasses import dataclass
-from models import constants
-import datetime
-import logging
-import marketdata_pb2
 
 class PriceHelper:
 
@@ -18,7 +18,9 @@ class PriceHelper:
          'BBGHUYNYA0X3', 'IE0000CHPRB9', 'IE00BK224M36', 'TCS0BD3QFB18',
          'IE00BD3QJ757', 'IE00BG0C3K84', 'BBG00HBPXX50', 'BBG00NTZWLM4',
          'BBG00PYMSNH9', 'BBG00Q214T90', 'BBG00P3B1V33', 'BBG00PNM0N81',
-         'BBG00PVVTDW6', 'BBG00Q41F4Y3', ])
+         'BBG00PVVTDW6', 'BBG00Q41F4Y3', 'TCS00A1071D5', 'TCS00A1071E3',
+         'TCS00A1071G8', 'TCS00A1071F0', 'BBG016CSVY38', 'TCS10A1071G8',
+         'TCS10A1071F0', 'TCS10A1071D5'])
 
     @dataclass
     class PriceItem:
@@ -44,7 +46,7 @@ class PriceHelper:
         for figi, v in self.__prices_dict.items():
             data = v
             unclosed_prices = list(
-                k for(k, v) in data.items() if not v.is_closed)
+                k for (k, v) in data.items() if not v.is_closed)
             if unclosed_prices:
                 unclosed_count += len(unclosed_prices)
                 for p in unclosed_prices:
@@ -52,7 +54,6 @@ class PriceHelper:
             self.__prices_dict[figi] = data
         if unclosed_count > 0:
             logging.info("clean %d unclosed prices", unclosed_count)
-
 
     @staticmethod
     def combine_dates(date, time):
@@ -85,7 +86,6 @@ class PriceHelper:
             logging.info("commit prices")
         else:
             self.price_fetched_count += 1
-
 
     def __get_candles(self, figi, min_date, max_date):
         request = marketdata_pb2.GetCandlesRequest(**{

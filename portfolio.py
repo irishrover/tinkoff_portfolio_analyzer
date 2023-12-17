@@ -421,10 +421,10 @@ def main():
 
             df_xirrs_clipped = df_xirrs.copy()
             numeric_columns = df_xirrs_clipped.select_dtypes('number').columns
+
             df_xirrs_clipped[numeric_columns] = df_xirrs_clipped[numeric_columns].clip(
                 -100, 300)
             bar.increment(1)
-
             if start_server:
                 tables.append(
                     html.Div(
