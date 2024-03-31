@@ -23,6 +23,7 @@ class Instrument:
     last_trade_date: datetime.date = datetime.max
     country: str = ""
     sector: str = ""
+    exchange: str = ""
 
     def nominal_rate(self):
         if self.instrument_type == InstrumentType.BOND:
@@ -35,6 +36,7 @@ class InstrumentsHelper:
         self.__instruments = instruments
         self.__instruments_dict = constants.db2dict(self.__instruments)
         self.__api_context = api_context
+        self.__update()
 
 
     def commit(self):
@@ -53,6 +55,7 @@ class InstrumentsHelper:
             uid=v.uid,
             currency=InstrumentsHelper.to_currency(v.currency),
             figi=v.figi, ticker=v.ticker, name=v.name,
+            exchange=v.exchange,
             nominal=Money(
                 currency=InstrumentsHelper.to_currency(v.nominal.currency),
                 amount=constants.sum_units_nano(v.nominal)),
@@ -67,7 +70,7 @@ class InstrumentsHelper:
             uid=v.uid,
             currency=InstrumentsHelper.to_currency(v.nominal.currency),
             figi=v.figi, ticker=v.ticker,
-            name=v.name, sector='Currency',
+            name=v.name, exchange=v.exchange, sector='Currency',
             nominal=Money(
                 currency=InstrumentsHelper.to_currency(v.nominal.currency),
                 amount=constants.sum_units_nano(v.nominal)),
@@ -82,7 +85,8 @@ class InstrumentsHelper:
             instrument_type=InstrumentType.ETF,
             uid=v.uid,
             currency=InstrumentsHelper.to_currency(v.currency),
-            figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
+            figi=v.figi, ticker=v.ticker, name=v.name,
+            exchange=v.exchange, nominal=None,
             first_trade_date=d1, last_trade_date=d2,
             country=v.country_of_risk, sector=v.sector
             if len(v.sector) else constants.DEFAULT_SECTOR)
@@ -95,7 +99,8 @@ class InstrumentsHelper:
             instrument_type=InstrumentType.SHARE,
             uid=v.uid,
             currency=InstrumentsHelper.to_currency(v.currency),
-            figi=v.figi, ticker=v.ticker, name=v.name, nominal=None,
+            figi=v.figi, ticker=v.ticker, name=v.name,
+            exchange=v.exchange, nominal=None,
             first_trade_date=d1, last_trade_date=d2,
             country=v.country_of_risk, sector=v.sector
             if len(v.sector) else constants.DEFAULT_SECTOR)
@@ -128,6 +133,7 @@ class InstrumentsHelper:
             instrument_type=InstrumentType.CURRENCY, currency=Currency.RUB,
             uid="a92e2e25-a698-45cc-a781-167cf465257c",
             figi=constants.FAKE_RUB_FIGI, ticker='RUB', name='Российский рубль',
+            exchange='mos',
             nominal=Money(), sector='Currency',
             first_trade_date=datetime.min,
             last_trade_date=datetime.max)
@@ -165,6 +171,8 @@ class InstrumentsHelper:
 
 
     def get_by_figi(self, figi: str) -> Instrument:
+        if figi == 'BBG00QPYJ5H0':
+            figi = 'TCS00A107UL4'
         result = self.__instruments_dict.get(figi, None)
         if result:
             return result

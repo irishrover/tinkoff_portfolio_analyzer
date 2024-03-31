@@ -238,20 +238,21 @@ def get_data_frame_by_portfolio(account_id, portfolio):
                 item, d, CURRENCY_HELPER)
             date_percents[d][full_name] = cnst.get_item_yield_percent(item)
 
-        d_time_delta = d - datetime.timedelta(days=7)
-        for item in all_items.values():
-            full_name = get_full_name(item)[0]
-            p_curr = cnst.mean(
-                cnst.get_item_price(item, d - datetime.timedelta(days=delta), PRICES_HELPER)
-                for delta in range(7))
-            p_prev = cnst.mean(
-                cnst.get_item_price(
-                    item, d_time_delta - datetime.timedelta(days=delta), PRICES_HELPER)
-                for delta in range(30))
-            if p_curr is not None and p_prev is not None and p_prev != 0.0:
-                date_prices[d][full_name] = 100.0 * (p_curr - p_prev) / p_prev
-            else:
-                date_prices[d][full_name] = None
+        if False:
+            d_time_delta = d - datetime.timedelta(days=7)
+            for item in all_items.values():
+                full_name = get_full_name(item)[0]
+                p_curr = cnst.mean(
+                    cnst.get_item_price(item, d - datetime.timedelta(days=delta), PRICES_HELPER)
+                    for delta in range(7))
+                p_prev = cnst.mean(
+                    cnst.get_item_price(
+                        item, d_time_delta - datetime.timedelta(days=delta), PRICES_HELPER)
+                    for delta in range(30))
+                if p_curr is not None and p_prev is not None and p_prev != 0.0:
+                    date_prices[d][full_name] = 100.0 * (p_curr - p_prev) / p_prev
+                else:
+                    date_prices[d][full_name] = None
 
     # Fill XIRRs separately.
     for k, v in date_xirrs_tmp.items():
@@ -455,17 +456,17 @@ def main():
                                            Plot.getItemsPlot(df_percents),
                                            Table.get_table(df_percents)],
                                  label="Percents"),
-                             dcc.Tab(
-                                 children=[Plot.getAllItemsPlot(df_prices),
-                                           html.H1("MA7-MA30"),
-                                           Plot.getItemsPlot(
-                                               df_prices, inverse=True),
-                                           Table.get_table(
-                                               df_prices,
-                                               highlight_neg_pos=True,
-                                               highlight_max_row=False,
-                                               use_allowed_items=False), ],
-                                 label="Prices"),
+                            #  dcc.Tab(
+                            #      children=[Plot.getAllItemsPlot(df_prices),
+                            #                html.H1("MA7-MA30"),
+                            #                Plot.getItemsPlot(
+                            #                    df_prices, inverse=True),
+                            #                Table.get_table(
+                            #                    df_prices,
+                            #                    highlight_neg_pos=True,
+                            #                    highlight_max_row=False,
+                            #                    use_allowed_items=False), ],
+                            #      label="Prices"),
                              dcc.Tab(
                                  children=[Plot.getAllItemsPlot(
                                      df_xirrs_clipped),

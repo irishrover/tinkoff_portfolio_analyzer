@@ -94,11 +94,17 @@ class PortfolioComparer:
         total_v2 = 0
         total_y1 = 0
         total_y2 = 0
+        blocked_v1 = 0
+        blocked_v2 = 0
         for item in p1:
             total_v1 += cnst.get_item_value(item, d1, self.__currency_helper)
+            blocked_v1 += cnst.get_item_blocked_value(
+                item, d1, self.__currency_helper, self.__instruments_helper)
             total_y1 += cnst.get_item_yield(item, d1, self.__currency_helper)
         for item in p2:
             total_v2 += cnst.get_item_value(item, d2, self.__currency_helper)
+            blocked_v2 += cnst.get_item_blocked_value(
+                item, d2, self.__currency_helper, self.__instruments_helper)
             total_y2 += cnst.get_item_yield(item, d2, self.__currency_helper)
 
         xirr_1 = self.__operations_helper.get_total_xirr(
@@ -110,6 +116,16 @@ class PortfolioComparer:
              (PortfolioComparer.__get_row(total_v1, total_v2) +
               PortfolioComparer.__get_row(0, 0) * 2 +
               PortfolioComparer.__get_row(xirr_1, xirr_2))))
+        result.append(
+            ("[Total blocked]", "", "", "", *
+             (PortfolioComparer.__get_row(blocked_v1, blocked_v2) +
+              PortfolioComparer.__get_row(0, 0) * 2 +
+              PortfolioComparer.__get_row(0, 0))))
+        result.append(
+            ("[Total non-blocked]", "", "", "", *
+             (PortfolioComparer.__get_row(total_v1 - blocked_v1, total_v2 - blocked_v2) +
+              PortfolioComparer.__get_row(0, 0) * 2 +
+              PortfolioComparer.__get_row(0, 0))))
 
         assert account in self.__prepared_operations
         all_operations = self.__prepared_operations[account]

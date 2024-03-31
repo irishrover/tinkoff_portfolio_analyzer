@@ -2,6 +2,7 @@ import bisect
 import datetime
 from pytz import timezone, utc
 from google.protobuf.timestamp_pb2 import Timestamp
+from models.base_classes import InstrumentType
 
 DATE_FORMAT = "%d.%m.%y %a"
 TIMEZONE = timezone('Europe/Moscow')
@@ -131,6 +132,19 @@ def get_item_yield_percent(item):
 
 
 def get_item_value(item, date, currency_helper):
+    rate = currency_helper.get_rate_for_date(
+        date, item.average_price.currency)
+    return rate * (item.expected_yield.amount +
+                   item.quantity * (item.average_price.amount + item.nkd.amount))
+
+def get_item_blocked_value(item, date, currency_helper, instruments_helper):
+    # Currecies are notblocked yet.
+    if item.instrument_type == InstrumentType.CURRENCY:
+        return 0.0
+    instrument = instruments_helper.get_by_figi(item.figi)
+    exchange = instrument.exchange
+    if not exchange.endswith('_close'):
+        return 0.0
     rate = currency_helper.get_rate_for_date(
         date, item.average_price.currency)
     return rate * (item.expected_yield.amount +
