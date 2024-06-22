@@ -5,7 +5,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import textwrap
-import logging
 
 from models import constants
 
@@ -13,6 +12,13 @@ def _values_sign_func(x):
     if x >= 0.0:
         return 'Gain'
     return 'Loss'
+
+
+def rolling_mean_df(df_x, df_y):
+    df = pd.DataFrame({'Y': df_y})
+    df.index = pd.to_datetime(df_x).values
+    return df.rolling(constants.MOVING_AVERAGE_TIMEDELTA).mean()['Y']
+
 
 class Plot:
 
@@ -35,9 +41,8 @@ class Plot:
                 name='Total Yield MA', mode='lines',
                 line=dict(
                     color='rgba(255, 0, 0, 0.35)', width=6, shape="spline"),
-                x=total_x, y=df_total.iloc
-                [0, constants.SUMMARY_COLUMNS_SIZE:].rolling(
-                    constants.MOVING_AVERAGE_DAYS).mean()),
+                x=total_x,
+                y=rolling_mean_df(total_x, df_total.iloc[0, constants.SUMMARY_COLUMNS_SIZE:])),
             secondary_y=False)
 
         yields_x = list(df_yield.attrs['date_columns'])
@@ -57,9 +62,8 @@ class Plot:
                 name='Yield MA', mode='lines',
                 line=dict(
                     color='rgba(61, 153, 112, 0.35)', width=6, shape="spline"),
-                x=yields_x, y=df_yield.iloc
-                [0, constants.SUMMARY_COLUMNS_SIZE:].rolling(
-                    constants.MOVING_AVERAGE_DAYS).mean()),
+                x=yields_x,
+                y=rolling_mean_df(yields_x, df_yield.iloc[0, constants.SUMMARY_COLUMNS_SIZE:])),
             secondary_y=False)
 
         # Percents
@@ -89,11 +93,12 @@ class Plot:
         figure.add_trace(go.Scatter(
             name='XIRR MA',
             mode='lines',
-            line=dict(color='rgba(255, 128, 64, 0.35)', width=6, shape="spline"),
+            line=dict(color='rgba(255, 128, 64, 0.35)',
+                      width=6, shape="spline"),
             x=list(df_xirrs.attrs['date_columns']),
-            y=df_xirrs.iloc[0, constants.SUMMARY_COLUMNS_SIZE:].rolling(constants.MOVING_AVERAGE_DAYS).mean(),
-            hovertemplate='%{x}<br>%{y:,.1f}%'),
-            secondary_y=True)
+            y=rolling_mean_df(
+                df_xirrs.attrs['date_columns'], df_xirrs.iloc[0, constants.SUMMARY_COLUMNS_SIZE:]),
+            hovertemplate='%{x}<br>%{y:,.1f}%'),        secondary_y=True)
 
         # USD
         figure.add_trace(go.Scatter(
@@ -113,7 +118,7 @@ class Plot:
                 line=dict(
                     color='rgba(0, 0, 255, 0.35)', width=6, shape="spline"),
                 x=df_usd[0],
-                y=df_usd[1].rolling(constants.MOVING_AVERAGE_DAYS).mean(),
+                y=rolling_mean_df(df_usd[0], df_usd[1]),
                 hovertemplate='%{x}<br>%{y:,.1f}%'),
             secondary_y=True)
 
