@@ -50,6 +50,21 @@ INSTRUMENTS = SqliteDict(DB_NAME, tablename='instruments', autocommit=True)
 INSTRUMENTS_HELPER = None
 
 
+def resample_dates_for_removing(dates):
+    dates = sorted(dates, reverse=True)
+    now = dates[0]
+    now_180 = now - datetime.timedelta(days=180)
+    old_dates = [x for x in dates if x < now_180 and x > dates[-1]]
+    last = old_dates[0]
+    result = []
+    for d in old_dates[1:]:
+        if (last - d).days >= 30:
+            last = d
+        else:
+            result.append(d)
+    return result
+
+
 def update_portfolios(all_accounts, api_context):
     accounts = list(pstns.V2.get_accounts(api_context))
     bar = create_progressbar('update_portfolios', len(accounts))
@@ -70,13 +85,21 @@ def update_portfolios(all_accounts, api_context):
 
         account_positions = all_accounts[account.id]
         fetch_date = cnst.NOW.date()
+
         today_positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
 
-        #for d in [datetime.date(2023, 9, 24), datetime.date(2023, 9, 23),]:
-        #    if d in account_positions.positions:
-        #        del account_positions.positions[d]
-        #print(account_positions.positions.keys())
+        # Remove old positions
+        resampled_dates_to_remove = resample_dates_for_removing(account_positions.positions.keys())
+        for d in resampled_dates_to_remove:
+            if d in account_positions.positions:
+                logging.info('remove old dates for \'%s\': %s',
+                                account.name, d)
+                del account_positions.positions[d]
+        if not any(resampled_dates_to_remove):
+            logging.info(
+                'remove old dates for \'%s\': none', account.name)
+
 
         # Upgrade FIGI if it changed.
         for d, positions in account_positions.positions.items():
