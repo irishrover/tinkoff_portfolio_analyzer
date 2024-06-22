@@ -54,6 +54,7 @@ class InstrumentType(Enum):
 class Currency(Enum):
     AED = "AED"
     AMD = "AMD"
+    AZN = "AZN"
     BYN = "BYN"
     CAD = "CAD"
     CHF = "CHF"
