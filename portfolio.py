@@ -56,8 +56,8 @@ def resample_dates_for_removing(dates):
     now_180 = now - datetime.timedelta(days=180)
     old_dates = [x for x in dates if x < now_180 and x > dates[-1]]
     last = old_dates[0]
-    result = [last]
-    for d in old_dates:
+    result = []
+    for d in old_dates[1:]:
         if (last - d).days >= 30:
             last = d
         else:
@@ -89,10 +89,17 @@ def update_portfolios(all_accounts, api_context):
         today_positions = pstns.api_to_portfolio(
             pstns.V2.get_positions(api_context, account.id).positions)
 
+        # Remove old positions
         resampled_dates_to_remove = resample_dates_for_removing(account_positions.positions.keys())
         for d in resampled_dates_to_remove:
             if d in account_positions.positions:
+                logging.info('remove old dates for \'%s\': %s',
+                                account.name, d)
                 del account_positions.positions[d]
+        if not any(resampled_dates_to_remove):
+            logging.info(
+                'remove old dates for \'%s\': none', account.name)
+
 
         # Upgrade FIGI if it changed.
         for d, positions in account_positions.positions.items():
