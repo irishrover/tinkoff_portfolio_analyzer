@@ -7,7 +7,7 @@ from models.base_classes import InstrumentType
 DATE_FORMAT = "%d.%m.%y %a"
 TIMEZONE = timezone('Europe/Moscow')
 NOW = datetime.datetime.now(tz=TIMEZONE)
-DATE_COLS = 11
+DATE_COLS = 30
 TITLE_FOR_SUMMARY = '[Total]'
 SUMMARY_COLUMNS = [TITLE_FOR_SUMMARY, '', '', '']
 SUMMARY_COLUMNS_SIZE = len(SUMMARY_COLUMNS)
