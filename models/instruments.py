@@ -30,14 +30,14 @@ class Instrument:
             return 0.01 * self.nominal.amount
         return 1.0
 
+
 class InstrumentsHelper:
 
     def __init__(self, api_context, instruments):
         self.__instruments = instruments
         self.__instruments_dict = constants.db2dict(self.__instruments)
         self.__api_context = api_context
-        self.__update()
-
+        # self.__update()
 
     def commit(self):
         constants.dict2db(self.__instruments_dict, self.__instruments)

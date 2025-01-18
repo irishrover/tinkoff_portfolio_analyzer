@@ -8,4 +8,4 @@ protobuf==4.21.12
 pytz==2019.3
 pyxirr>=0.9.2
 sqlitedict==1.7.0
-flask=2.2.4
+flask==2.2.4

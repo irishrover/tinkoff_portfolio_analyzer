@@ -51,14 +51,18 @@ INSTRUMENTS_HELPER = None
 
 
 def resample_dates_for_removing(dates):
-    dates = sorted(dates, reverse=True)
-    now = dates[0]
+    if not any(dates):
+        return []
+    dates = sorted(dates)
+    now = dates[-1]
     now_180 = now - datetime.timedelta(days=180)
-    old_dates = [x for x in dates if x < now_180 and x > dates[-1]]
+    old_dates = [x for x in dates if x < now_180]
+    if not any(old_dates):
+        return []
     last = old_dates[0]
     result = []
     for d in old_dates[1:]:
-        if (last - d).days >= 30:
+        if (d - last).days >= 28:
             last = d
         else:
             result.append(d)
@@ -93,7 +97,7 @@ def update_portfolios(all_accounts, api_context):
         resampled_dates_to_remove = resample_dates_for_removing(account_positions.positions.keys())
         for d in resampled_dates_to_remove:
             if d in account_positions.positions:
-                logging.info('remove old dates for \'%s\': %s',
+                logging.warning('remove old dates for \'%s\': %s',
                                 account.name, d)
                 del account_positions.positions[d]
         if not any(resampled_dates_to_remove):
@@ -431,22 +435,32 @@ def main():
 
         tabs = []
         bar = create_progressbar('Building charts', len(accounts) * 4)
+
+        all_portofolios = defaultdict(list)
+
         for account in accounts.values():
             OPERATIONS_HELPER.update(account.id)
             bar.increment(1, notes=account.name)
             tables = []
             logging.info("get_data_frame_by_portfolio is starting")
-            df_yields, df_totals, df_percents, df_xirrs, df_prices, df_stats, df_usd \
+            df_yields, df_totals, df_percents, \
+                df_xirrs, df_prices, \
+                df_stats, df_usd \
                 = get_data_frame_by_portfolio(account.id, account.positions)
+
+            #for d in account.positions.keys():
+            #    all_portofolios[d].append(account.positions.values())
+            #    all_portofolios[d].append("zzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+
             bar.increment(1)
             logging.info("get_data_frame_by_portfolio done")
             tables.append(Plot.getTotalWithMAPlot(
                 df_yields, df_totals, df_percents, df_usd, df_xirrs))
 
             df_xirrs_clipped = df_xirrs.copy()
-            numeric_columns = df_xirrs_clipped.select_dtypes('number').columns
+            num_cols = df_xirrs_clipped.select_dtypes('number').columns
 
-            df_xirrs_clipped[numeric_columns] = df_xirrs_clipped[numeric_columns].clip(
+            df_xirrs_clipped[num_cols] = df_xirrs_clipped[num_cols].clip(
                 -100, 300)
             bar.increment(1)
             if start_server:
@@ -505,7 +519,14 @@ def main():
                         children=tables))
             bar.increment(1)
 
+        if start_server:
+            tabs.insert(0, dcc.Tab(
+                            label="[Total]",
+                            children=[]))
+
     bar.finish()
+
+    #print(all_portofolios)
 
     logging.info("Saving the data")
     with create_progressbar('Saving the data', 4 * 3) as bar:
