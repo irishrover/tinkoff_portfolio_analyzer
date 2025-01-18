@@ -105,6 +105,22 @@ class InstrumentsHelper:
             country=v.country_of_risk, sector=v.sector
             if len(v.sector) else constants.DEFAULT_SECTOR)
 
+    @staticmethod
+    def __parse_futures(v) -> Instrument:
+        d1 = constants.seconds_to_time(v.first_trade_date)
+        d2 = constants.seconds_to_time(v.last_trade_date)
+        return Instrument(
+            instrument_type=InstrumentType.FUTURES,
+            uid=v.uid,
+            currency=InstrumentsHelper.to_currency(v.currency),
+            figi=v.figi,
+            ticker=v.ticker,
+            name=v.name,
+            exchange=v.exchange, nominal=None,
+            first_trade_date=d1, last_trade_date=d2,
+            country=v.country_of_risk, sector=v.sector
+            if len(v.sector) else constants.DEFAULT_SECTOR)
+
 
     def __update(self):
 
@@ -158,17 +174,21 @@ class InstrumentsHelper:
                 request, metadata=self.__api_context.metadata()).instrument
             result = InstrumentsHelper.__parse_currency(response)
         elif kind == cmn.InstrumentType.INSTRUMENT_TYPE_ETF:
-            response = self.__api_context.instruments().EtfBy(request, metadata=self.__api_context.metadata()).instrument
+            response = self.__api_context.instruments().EtfBy(
+                request, metadata=self.__api_context.metadata()).instrument
             result = InstrumentsHelper.__parse_etf(response)
         elif kind == cmn.InstrumentType.INSTRUMENT_TYPE_SHARE:
             response = self.__api_context.instruments().ShareBy(
                 request, metadata=self.__api_context.metadata()).instrument
             result = InstrumentsHelper.__parse_share(response)
+        elif kind == cmn.InstrumentType.INSTRUMENT_TYPE_FUTURES:
+            response = self.__api_context.instruments().FutureBy(
+                request, metadata=self.__api_context.metadata()).instrument
+            result = InstrumentsHelper.__parse_futures(response)
         else:
             assert False, v
         self.__instruments_dict[figi] = result
         return result
-
 
     def get_by_figi(self, figi: str) -> Instrument:
         if figi == 'BBG00QPYJ5H0':

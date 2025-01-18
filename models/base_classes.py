@@ -41,6 +41,7 @@ class InstrumentType(Enum):
     CURRENCY = "Currency"
     ETF = "Etf"
     SHARE = "Stock"
+    FUTURES = "Futures"
 
     @staticmethod
     def prepare_type(t):
@@ -67,6 +68,7 @@ class Currency(Enum):
     KGS = "KGS"
     KZT = "KZT"
     NOK = "NOK"
+    PT  = "PT."
     RUB = "RUB"
     SEK = "SEK"
     TJS = "TJS"
@@ -75,6 +77,8 @@ class Currency(Enum):
     UZS = "UZS"
     XAG = "XAG"
     XAU = "XAU"
+    XPD = "XPD"
+    XPT = "XPT"
     ZAR = "ZAR"
 
 

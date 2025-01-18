@@ -63,7 +63,7 @@ def api_to_portfolio(positions) -> List[Position]:
 
             #assert p.blocked == True or avg_price.amount == 0, result[p.figi]
             logging.info('api_to_portfolio: %d blocked shares handled %s', quantity, p.figi)
-        else:
+        elif p.instrument_type != "":
             quantity = constants.sum_units_nano(p.quantity)
             curr_price = to_money(p.current_price)
             # TODO: revert to average_position_price_fifo after https://github.com/Tinkoff/investAPI/issues/312
