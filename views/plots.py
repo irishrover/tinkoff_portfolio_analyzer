@@ -5,6 +5,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import textwrap
+import datetime
+import logging
+import math
 
 from models import constants
 
@@ -25,8 +28,41 @@ class Plot:
     @staticmethod
     def getTotalWithMAPlot(df_yield, df_total, df_percents, df_usd, df_xirrs):
         figure = make_subplots(specs=[[{"secondary_y": True}]])
-
         total_x = list(df_total.attrs['date_columns'])
+        if len(df_total) == 0:
+            return dcc.Graph(figure=figure)
+        # Add vertical lines for for Jan 1st
+        start_year = total_x[0].year
+        end_year = total_x[-1].year
+        for year in range(start_year + 1, end_year + 1):
+            jan_first = datetime.datetime(year, 1, 1)
+            if total_x[0] <= pd.Timestamp(jan_first) <= total_x[-1]:
+                figure.add_shape(
+                    type="line",
+                    x0=jan_first,
+                    x1=jan_first,
+                    y0=0,
+                    y1=1,
+                    yref="paper",
+                    line=dict(color='rgba(255, 255, 255, 128)',
+                              width=7, dash="solid"),
+                    layer="below",
+                )
+            jul_first = datetime.datetime(year, 7, 1)
+            if total_x[0] <= pd.Timestamp(jul_first) <= total_x[-1]:
+                figure.add_shape(
+                    type="line",
+                    x0=jul_first,
+                    x1=jul_first,
+                    y0=0,
+                    y1=1,
+                    yref="paper",
+                    line=dict(color='rgba(255, 255, 255, 128)',
+                              width=3, dash="solid"),
+                    layer="below",
+                )
+
+
         fig = go.Scatter(
             name='Total Yield', mode='lines+markers',
             line=dict(color='red', width=6, dash='solid', shape="spline"),
@@ -37,7 +73,6 @@ class Plot:
         # Moving average
         figure.add_trace(
             go.Scatter(
-                visible='legendonly',
                 name='Total Yield MA', mode='lines',
                 line=dict(
                     color='rgba(255, 0, 0, 0.35)', width=6, shape="spline"),
@@ -47,6 +82,7 @@ class Plot:
 
         yields_x = list(df_yield.attrs['date_columns'])
         fig = go.Scatter(
+            visible='legendonly',
             name='Yield', mode='lines+markers',
             line=dict(
                 color='#3D9970', width=6, dash='solid', shape="spline"),
@@ -142,6 +178,8 @@ class Plot:
     @staticmethod
     def getItemsPlot(
             df, clamp_range=None, compare_to_total=False, inverse=False):
+        if len(df) == 0:
+            return dcc.Graph()
         if compare_to_total:
             total_value = df.iloc[0, -1]
         else:
@@ -169,6 +207,8 @@ class Plot:
 
     @staticmethod
     def getAllItemsPlot(df, stack_group_name=None):
+        if len(df) == 0:
+            return dcc.Graph()
         if stack_group_name:
             df = df.drop(0)
         df = df.sort_values(by=[df.columns[-1]], ascending=True)
@@ -184,11 +224,13 @@ class Plot:
             figure.add_trace(fig)
         figure.update_traces(marker=dict(size=8))
         figure.update_layout(showlegend=True, height=750,
-                             legend=dict(orientation="h"))
+                            legend=dict(orientation="h"))
         return dcc.Graph(figure=figure)
 
     @staticmethod
     def getSunburstPlot(df):
+        if len(df) == 0:
+            return dcc.Graph()
         df = df.drop(0)
         wrapper = textwrap.TextWrapper(width=10)
         df[df.columns[0]] = df[df.columns[0]].apply(

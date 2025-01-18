@@ -138,21 +138,32 @@ class PortfolioComparer:
                     all_operations[op][d1],
                     all_operations[op][d2]))
 
-        payins = all_operations[Operation.INPUT]
-        payouts = all_operations[Operation.OUTPUT]
-        pay_in_out_1 = payins[d1] + payouts[d1]
-        pay_in_out_2 = payins[d2] + payouts[d2]
+        payin_d1 = all_operations[Operation.INPUT][d1] + \
+            max(0.0, all_operations[Operation.TRANS_BS_BS][d1]) + \
+            max(0.0, all_operations[Operation.INP_MULTI][d1])
+        payin_d2 = all_operations[Operation.INPUT][d2] + \
+            max(0.0, all_operations[Operation.TRANS_BS_BS][d2]) + \
+            max(0.0, all_operations[Operation.INP_MULTI][d2])
+
+        payout_d1 = all_operations[Operation.OUTPUT][d1] + \
+            min(0.0, all_operations[Operation.TRANS_BS_BS][d1])
+        payout_d2 = all_operations[Operation.OUTPUT][d2] + \
+            min(0.0, all_operations[Operation.TRANS_BS_BS][d2])
+
+        pay_in_out_1 = payin_d1 + payout_d1
+        pay_in_out_2 = payin_d2 + payout_d2
         result.append(("[Total Yield]", "", "", "", *
                        (PortfolioComparer.__get_row(
                            total_v1 - pay_in_out_1,
                            total_v2 - pay_in_out_2) +
                         PortfolioComparer.__get_row(0, 0) * 3)))
-        result.append(
-            ("[Total Yield, %]", "", "", "", *
-             (PortfolioComparer.__get_row(
-                 100.0 * (total_v1 - pay_in_out_1) / pay_in_out_1,
-                 100.0 * (total_v2 - pay_in_out_2) / pay_in_out_2) +
-              PortfolioComparer.__get_row(0, 0) * 3)))
+        if pay_in_out_1 != 0.0 and pay_in_out_1 != 0.0:
+            result.append(
+                ("[Total Yield, %]", "", "", "", *
+                 (PortfolioComparer.__get_row(
+                     100.0 * (total_v1 - pay_in_out_1) / pay_in_out_1,
+                     100.0 * (total_v2 - pay_in_out_2) / pay_in_out_2) +
+                  PortfolioComparer.__get_row(0, 0) * 3)))
 
         result.append(
             ("[Yield]", "", "", "", *

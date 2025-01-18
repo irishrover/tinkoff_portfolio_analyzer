@@ -89,12 +89,18 @@ class Operation(Enum):
     OVER_COM = 62  # Списание комиссии
     OVER_INCOME = 63  # Доход от оверанайта
     OPTION_EXPIRATION = 64  # Экспирация
+    OPERATION_TYPE_FUTURE_EXPIRATION = 65 # Экспирация фьючерса
 
     def always_visible(self):
-        return self.value in [
-            Operation.INPUT.value, Operation.OUTPUT.value,
-            Operation.DIVIDEND.value, Operation.COUPON.value
-        ]
+        return self.value in frozenset((
+            Operation.INPUT.value,
+            Operation.OUTPUT.value,
+            Operation.DIVIDEND.value,
+            Operation.COUPON.value,
+            Operation.TRANS_BS_BS.value,
+            Operation.INP_MULTI.value,
+            Operation.BUY_CARD.value,)
+        )
 
 
 @dataclass
@@ -113,7 +119,8 @@ class OperationsHelper:
     OPERATION_NAMES_SET = frozenset(
         [Operation.BUY, Operation.BUY_CARD, Operation.SELL, Operation.COUPON,
          Operation.DIVIDEND])
-    PAY_IN_OUT_NAMES_SET = frozenset([Operation.INPUT, Operation.OUTPUT])
+    PAY_IN_OUT_NAMES_SET = frozenset(
+        [Operation.INPUT, Operation.OUTPUT,  Operation.TRANS_BS_BS, Operation.INP_MULTI,])
 
     def __init__(self, api_context, currency_helper, operations):
         self.__operations = operations
@@ -255,7 +262,10 @@ class OperationsHelper:
                         o[1].date, o[1].payment.currency)) for o in operations
                     if o[1].date.date() <= constants.prepare_date(d)]
                 dates_amounts.append((d, -dates_totals[d]))
-                res = xirr(dates_amounts)
+                if len(dates_amounts) > 1:
+                    res = xirr(dates_amounts)
+                else:
+                    res = 0.0
                 result[d] = res * 100.0 if res else 0.0
         return result
 

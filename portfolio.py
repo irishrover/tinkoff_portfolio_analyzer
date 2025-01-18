@@ -12,6 +12,7 @@ from dash import Dash, dcc, html
 from sqlitedict import SqliteDict
 import grpc
 import pandas as pd
+import warnings
 
 import progressbar
 import progressbar.widgets
@@ -51,14 +52,18 @@ INSTRUMENTS_HELPER = None
 
 
 def resample_dates_for_removing(dates):
-    dates = sorted(dates, reverse=True)
-    now = dates[0]
+    if not any(dates):
+        return []
+    dates = sorted(dates)
+    now = dates[-1]
     now_180 = now - datetime.timedelta(days=180)
-    old_dates = [x for x in dates if x < now_180 and x > dates[-1]]
+    old_dates = [x for x in dates if x < now_180]
+    if not any(old_dates):
+        return []
     last = old_dates[0]
     result = []
     for d in old_dates[1:]:
-        if (last - d).days >= 30:
+        if (d - last).days >= 28:
             last = d
         else:
             result.append(d)
@@ -91,10 +96,11 @@ def update_portfolios(all_accounts, api_context):
 
         # Remove old positions
         resampled_dates_to_remove = resample_dates_for_removing(account_positions.positions.keys())
+        #resampled_dates_to_remove.append(datetime.datetime(2025, 11, 15).date())
         for d in resampled_dates_to_remove:
             if d in account_positions.positions:
-                logging.info('remove old dates for \'%s\': %s',
-                                account.name, d)
+                logging.warning('remove old dates for \'%s\' [%s]: %s',
+                                account.name, account.id, d)
                 del account_positions.positions[d]
         if not any(resampled_dates_to_remove):
             logging.info(
@@ -225,9 +231,10 @@ def tune_df(df, key_dates, allowed_items, disallowed_dates):
 def get_data_frame_by_portfolio(account_id, portfolio):
 
     def insert_row(df, data):
-        df.loc[-1] = data
-        df.index = df.index + 1
-        df.sort_index(inplace=True)
+        if len(data) > 4:
+            df.loc[-1] = data
+            df.index = df.index + 1
+            df.sort_index(inplace=True)
 
     logging.info('get_data_frame_by_portfolio [%s]', account_id)
 
@@ -315,7 +322,7 @@ def get_data_frame_by_portfolio(account_id, portfolio):
 
     max_date = max(key_dates)
     min_date = min(key_dates)
-    days_diff = max(1, int((max_date - min_date).days / cnst.DATE_COLS))
+    days_diff = max(1, (max_date - min_date).days // cnst.DATE_COLS)
     allowed_dates = [key_dates[0]]
     disallowed_dates = []
     for d in key_dates[1:-1]:
@@ -324,6 +331,7 @@ def get_data_frame_by_portfolio(account_id, portfolio):
             allowed_dates.append(d)
         else:
             disallowed_dates.append(d)
+
 
     columns = ['Name', 'Type', 'Currency',
                'Sector'] + list(x.strftime(cnst.DATE_FORMAT) for x in key_dates)
@@ -340,14 +348,22 @@ def get_data_frame_by_portfolio(account_id, portfolio):
         account_id, key_dates, Operation.INPUT)
     payouts_operations = OPERATIONS_HELPER.get_operations_by_dates(
         account_id, key_dates, Operation.OUTPUT)
+    trans_bs_bs_operations = OPERATIONS_HELPER.get_operations_by_dates(
+        account_id, key_dates, Operation.TRANS_BS_BS)
+    inp_multi_bs_bs_operations = OPERATIONS_HELPER.get_operations_by_dates(
+        account_id, key_dates, Operation.INP_MULTI)
     payins = {k.strftime(cnst.DATE_FORMAT): v for k,
               v in payins_operations.items()}
     payouts = {k.strftime(cnst.DATE_FORMAT): v for k,
                v in payouts_operations.items()}
+    trans_bs_bs = {k.strftime(cnst.DATE_FORMAT): v for k,
+              v in trans_bs_bs_operations.items()}
+    inp_multi_bs_bs = {k.strftime(cnst.DATE_FORMAT): v for k,
+              v in inp_multi_bs_bs_operations.items()}
     insert_row(
         df_percents, cnst.SUMMARY_COLUMNS +
         list(
-            100 * (df_totals[x].sum() / payins[x] - 1.0)
+            100 * (df_totals[x].sum() / payins[x] - 1.0) if payins[x] else 0
             for x in df_percents.columns[cnst.SUMMARY_COLUMNS_SIZE:]))
     insert_row(
         df_yields, cnst.SUMMARY_COLUMNS +
@@ -365,7 +381,8 @@ def get_data_frame_by_portfolio(account_id, portfolio):
     insert_row(
         df_totals, cnst.SUMMARY_COLUMNS +
         list(
-            df_totals[x].sum() - (payins[x] + payouts[x])
+            df_totals[x].sum() - (payins[x] + payouts[x] +
+                                  trans_bs_bs[x] + inp_multi_bs_bs[x])
             for x in df_totals.columns[cnst.SUMMARY_COLUMNS_SIZE:]))
 
     df_usd = get_usd_df(key_dates)
@@ -409,6 +426,9 @@ def main():
             ' - %(filename)15s:%(lineno)3d:%(funcName)30s - %(message)s')
         start_server = not args.no_server
 
+    warnings.simplefilter(action="ignore", category=RuntimeWarning, append=True)
+    warnings.simplefilter(action="ignore", category=FutureWarning, append=True)
+
     parse_cmd_line()
     logging.info("main is starting")
 
@@ -428,25 +448,30 @@ def main():
                     autocommit=True) as accounts:
         update_portfolios(accounts, api_context)
         accounts.commit()
-
         tabs = []
         bar = create_progressbar('Building charts', len(accounts) * 4)
+
+        all_portofolios = defaultdict(list)
+
         for account in accounts.values():
             OPERATIONS_HELPER.update(account.id)
             bar.increment(1, notes=account.name)
             tables = []
             logging.info("get_data_frame_by_portfolio is starting")
-            df_yields, df_totals, df_percents, df_xirrs, df_prices, df_stats, df_usd \
+            df_yields, df_totals, df_percents, \
+                df_xirrs, df_prices, \
+                df_stats, df_usd \
                 = get_data_frame_by_portfolio(account.id, account.positions)
+
             bar.increment(1)
             logging.info("get_data_frame_by_portfolio done")
             tables.append(Plot.getTotalWithMAPlot(
                 df_yields, df_totals, df_percents, df_usd, df_xirrs))
 
             df_xirrs_clipped = df_xirrs.copy()
-            numeric_columns = df_xirrs_clipped.select_dtypes('number').columns
+            num_cols = df_xirrs_clipped.select_dtypes('number').columns
 
-            df_xirrs_clipped[numeric_columns] = df_xirrs_clipped[numeric_columns].clip(
+            df_xirrs_clipped[num_cols] = df_xirrs_clipped[num_cols].clip(
                 -100, 300)
             bar.increment(1)
             if start_server:
@@ -505,7 +530,15 @@ def main():
                         children=tables))
             bar.increment(1)
 
+        if start_server:
+            # tabs.insert(0, dcc.Tab(
+            #                 label="[Total]",
+            #                 children=[]))
+            pass
+
     bar.finish()
+
+    #print(all_portofolios)
 
     logging.info("Saving the data")
     with create_progressbar('Saving the data', 4 * 3) as bar:

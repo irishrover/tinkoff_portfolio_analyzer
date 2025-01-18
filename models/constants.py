@@ -4,10 +4,11 @@ from pytz import timezone, utc
 from google.protobuf.timestamp_pb2 import Timestamp
 from models.base_classes import InstrumentType
 
-DATE_FORMAT = "%d.%m.%y %a"
+#DATE_FORMAT = "%d.%m.%y %a"
+DATE_FORMAT = "%d.%m.%y"
 TIMEZONE = timezone('Europe/Moscow')
 NOW = datetime.datetime.now(tz=TIMEZONE)
-DATE_COLS = 30
+DATE_COLS = 20
 TITLE_FOR_SUMMARY = '[Total]'
 SUMMARY_COLUMNS = [TITLE_FOR_SUMMARY, '', '', '']
 SUMMARY_COLUMNS_SIZE = len(SUMMARY_COLUMNS)
@@ -137,12 +138,12 @@ def get_item_value(item, date, currency_helper):
                    item.quantity * (item.average_price.amount + item.nkd.amount))
 
 def get_item_blocked_value(item, date, currency_helper, instruments_helper):
-    # Currecies are notblocked yet.
+    # Currencies aren't blocked yet.
     if item.instrument_type == InstrumentType.CURRENCY:
         return 0.0
     instrument = instruments_helper.get_by_figi(item.figi)
     exchange = instrument.exchange
-    if not exchange.endswith('_close'):
+    if exchange != 'unknown' and not exchange.endswith('_close'):
         return 0.0
     rate = currency_helper.get_rate_for_date(
         date, item.average_price.currency)
